@@ -42,14 +42,56 @@
                     onclick="toggleSavedPanel()">
                 <i class="fas fa-history me-1"></i><span data-i18n="a.filters_btn">الفلاتر</span>
             </button>
-            <button class="btn btn-sm" style="background:#10b981;color:white;border:none" onclick="exportExcel()">
-                <i class="fas fa-file-excel me-1"></i><span data-i18n="a.export">تصدير</span>
-            </button>
-            <button type="button" class="btn btn-sm" style="background:rgba(255,255,255,0.15);color:white;border:1px solid rgba(255,255,255,0.3)"
-                    onclick="doExportCompliance();setTimeout(doExportCrossTab,400)"
-                    title="تصدير جميع المخططات">
-                <i class="fas fa-images me-1"></i><span data-i18n="chart.export_all">تصدير جميع المخططات</span>
-            </button>
+            <!-- Export Dropdown -->
+            <div class="dropdown">
+                <button class="btn btn-sm dropdown-toggle" style="background:#10b981;color:white;border:none"
+                        data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="fas fa-download me-1"></i>تصدير
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end shadow" style="min-width:200px;font-family:Cairo,sans-serif">
+                    <li><h6 class="dropdown-header" style="font-size:.72rem;color:#9ca3af">بيانات</h6></li>
+                    <li>
+                        <a class="dropdown-item" href="#" onclick="exportExcel();return false">
+                            <i class="fas fa-file-excel me-2" style="color:#10b981;width:16px"></i>
+                            تصدير Excel
+                        </a>
+                    </li>
+                    <li><hr class="dropdown-divider my-1"></li>
+                    <li><h6 class="dropdown-header" style="font-size:.72rem;color:#9ca3af">صور PNG</h6></li>
+                    <li>
+                        <a class="dropdown-item" href="#" onclick="doExportCompliance();return false">
+                            <i class="fas fa-image me-2" style="color:#3b82f6;width:16px"></i>
+                            مخطط الامتثال
+                        </a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item" href="#" onclick="doExportCrossTab();return false">
+                            <i class="fas fa-image me-2" style="color:#8b5cf6;width:16px"></i>
+                            مخطط المقارنة
+                        </a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item" href="#" onclick="doExportCompliance();setTimeout(doExportCrossTab,400);return false">
+                            <i class="fas fa-images me-2" style="color:#f59e0b;width:16px"></i>
+                            كل المخططات PNG
+                        </a>
+                    </li>
+                    <li><hr class="dropdown-divider my-1"></li>
+                    <li><h6 class="dropdown-header" style="font-size:.72rem;color:#9ca3af">PDF</h6></li>
+                    <li>
+                        <a class="dropdown-item" href="#" onclick="exportPDF();return false">
+                            <i class="fas fa-file-pdf me-2" style="color:#ef4444;width:16px"></i>
+                            تصدير تقرير PDF
+                        </a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item" href="#" onclick="exportAll();return false">
+                            <i class="fas fa-layer-group me-2" style="color:#6b7280;width:16px"></i>
+                            تصدير الكل (Excel + PDF)
+                        </a>
+                    </li>
+                </ul>
+            </div>
         </div>
     </div>
 
@@ -165,10 +207,18 @@
                     </button>
                 }
             </div>
-            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="doExportCompliance()"
-                    title="تصدير PNG">
-                <i class="fas fa-download"></i>
-            </button>
+            <div class="dropdown">
+                <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle"
+                        data-bs-toggle="dropdown" title="تصدير">
+                    <i class="fas fa-download"></i>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end" style="font-family:Cairo,sans-serif;min-width:150px">
+                    <li><a class="dropdown-item" href="#" onclick="doExportCompliance();return false">
+                        <i class="fas fa-image me-2" style="color:#3b82f6;width:14px"></i>PNG</a></li>
+                    <li><a class="dropdown-item" href="#" onclick="exportCardPDF('complianceCard','compliance');return false">
+                        <i class="fas fa-file-pdf me-2" style="color:#ef4444;width:14px"></i>PDF</a></li>
+                </ul>
+            </div>
         </div>
     </div>
     <div class="card-body">
@@ -218,10 +268,18 @@
                     </button>
                 }
             </div>
-            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="doExportCrossTab()"
-                    title="تصدير PNG">
-                <i class="fas fa-download"></i>
-            </button>
+            <div class="dropdown">
+                <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle"
+                        data-bs-toggle="dropdown" title="تصدير">
+                    <i class="fas fa-download"></i>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end" style="font-family:Cairo,sans-serif;min-width:150px">
+                    <li><a class="dropdown-item" href="#" onclick="doExportCrossTab();return false">
+                        <i class="fas fa-image me-2" style="color:#8b5cf6;width:14px"></i>PNG</a></li>
+                    <li><a class="dropdown-item" href="#" onclick="exportCardPDF('crossTabCard','cross-tab');return false">
+                        <i class="fas fa-file-pdf me-2" style="color:#ef4444;width:14px"></i>PDF</a></li>
+                </ul>
+            </div>
         </div>
     </div>
     <div class="card-body" style="height:380px">
@@ -349,6 +407,7 @@
 </div>
 
 @section Scripts {
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script>
 // ── Constants ──────────────────────────────────────────────────
 const FILE_ID        = @Model.FileId;
@@ -1501,6 +1560,62 @@ function doExportCompliance() {
         document.body.removeChild(link);
         showToast('✓ تم تصدير المخطط', 'success');
     } catch(e) { showToast('خطأ في التصدير: ' + e.message, 'danger'); }
+}
+
+// ── PDF Export ─────────────────────────────────────────────────
+async function exportCardPDF(cardId, filename) {
+    const card = document.getElementById(cardId);
+    if (!card) { showToast('العنصر غير موجود', 'danger'); return; }
+    showToast('جاري إنشاء PDF...', 'info');
+    try {
+        const cvs = await html2canvas(card, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+        const imgData = cvs.toDataURL('image/png', 1.0);
+        const { jsPDF } = window.jspdf;
+        const w = cvs.width / 2, h = cvs.height / 2;
+        const pdf = new jsPDF({ orientation: w > h ? 'landscape' : 'portrait', unit: 'px', format: [w, h] });
+        pdf.addImage(imgData, 'PNG', 0, 0, w, h);
+        pdf.save(filename + '-' + new Date().toISOString().slice(0, 10) + '.pdf');
+        showToast('✓ تم تصدير PDF', 'success');
+    } catch(e) { showToast('خطأ: ' + e.message, 'danger'); }
+}
+
+async function exportPDF() {
+    showToast('جاري إنشاء التقرير...', 'info');
+    try {
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+        const pageW = pdf.internal.pageSize.getWidth();
+        const pageH = pdf.internal.pageSize.getHeight();
+        const margin = 10, usableW = pageW - margin * 2;
+
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(15);
+        pdf.text('Smart Analyzer - Analysis Report', pageW / 2, 18, { align: 'center' });
+        pdf.setFontSize(9);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }), pageW / 2, 26, { align: 'center' });
+
+        let y = 34;
+        for (const [id, name] of [['complianceCard','Compliance Chart'],['crossTabCard','Cross-Tab Chart']]) {
+            const el = document.getElementById(id);
+            if (!el) continue;
+            pdf.setFontSize(10); pdf.setFont('helvetica', 'bold');
+            pdf.text(name, margin, y + 5); y += 8;
+            const cvs = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+            const imgH = (cvs.height / cvs.width) * usableW;
+            if (y + imgH > pageH - margin) { pdf.addPage(); y = margin; }
+            pdf.addImage(cvs.toDataURL('image/png', 1.0), 'PNG', margin, y, usableW, imgH);
+            y += imgH + 10;
+        }
+
+        pdf.save('analysis-report-' + new Date().toISOString().slice(0, 10) + '.pdf');
+        showToast('✓ تم تصدير التقرير', 'success');
+    } catch(e) { showToast('خطأ: ' + e.message, 'danger'); }
+}
+
+async function exportAll() {
+    await exportExcel();
+    setTimeout(exportPDF, 800);
 }
 
 // ── Export cross-tab chart ──
