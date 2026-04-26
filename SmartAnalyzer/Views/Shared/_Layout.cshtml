@@ -1,0 +1,369 @@
+@{
+    var _lang = Context.Request.Cookies["lang"] ?? "ar";
+    var _dir  = _lang == "en" ? "ltr" : "rtl";
+    var _bootstrapCss = _lang == "en"
+        ? "https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
+        : "https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.rtl.min.css";
+}
+<!DOCTYPE html>
+<html lang="@_lang" dir="@_dir">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - المحلل الذكي</title>
+    <link id="bootstrap-css" rel="stylesheet" href="@_bootstrapCss" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body>
+    @if (User.Identity?.IsAuthenticated == true)
+    {
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-brand">
+                <i class="fas fa-brain me-2"></i>
+                <span data-i18n="app.title">المحلل الذكي</span>
+            </div>
+            <nav class="sidebar-nav">
+                <a asp-controller="Dashboard" asp-action="Index" class="sidebar-link @(ViewContext.RouteData.Values["controller"]?.ToString() == "Dashboard" ? "active" : "")">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <span data-i18n="nav.dashboard">لوحة التحكم</span>
+                </a>
+                <a href="#" class="sidebar-link" data-bs-toggle="modal" data-bs-target="#uploadModal">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <span data-i18n="nav.upload">رفع ملف Excel</span>
+                </a>
+                <a asp-controller="Dashboard" asp-action="Index" class="sidebar-link @(ViewContext.RouteData.Values["controller"]?.ToString() == "Analysis" ? "active" : "")">
+                    <i class="fas fa-chart-pie"></i>
+                    <span data-i18n="nav.analysis">التحليل والمقارنات</span>
+                </a>
+                @if (User.IsInRole("Admin"))
+                {
+                    <a asp-controller="UserManagement" asp-action="Index" class="sidebar-link @(ViewContext.RouteData.Values["controller"]?.ToString() == "UserManagement" ? "active" : "")">
+                        <i class="fas fa-users-cog"></i>
+                        <span data-i18n="nav.users">إدارة المستخدمين</span>
+                    </a>
+                }
+            </nav>
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <i class="fas fa-user-circle fa-2x mb-1"></i>
+                    <div class="small">@User.Identity!.Name</div>
+                </div>
+                <form asp-controller="Account" asp-action="Logout" method="post" class="mt-2">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="btn btn-sm btn-outline-light w-100">
+                        <i class="fas fa-sign-out-alt me-1"></i><span data-i18n="nav.logout">تسجيل الخروج</span>
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div class="main-content" id="mainContent">
+            <div class="topbar">
+                <button class="btn btn-sm btn-link text-dark sidebar-toggle" id="sidebarToggle">
+                    <i class="fas fa-bars fa-lg"></i>
+                </button>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-0">
+                        <li class="breadcrumb-item"><a asp-controller="Dashboard" asp-action="Index" data-i18n="topbar.home">الرئيسية</a></li>
+                        @if (ViewData["Breadcrumb"] != null)
+                        {
+                            <li class="breadcrumb-item active">@ViewData["Breadcrumb"]</li>
+                        }
+                    </ol>
+                </nav>
+                <div class="ms-auto d-flex align-items-center gap-2">
+                    <button id="langToggleBtn" onclick="toggleLanguage()"
+                            class="btn btn-sm"
+                            style="background:rgba(37,99,235,0.1);border:1px solid rgba(37,99,235,0.3);color:#2563eb;font-family:Cairo,sans-serif;font-size:.8rem">
+                        <i class="fas fa-globe me-1"></i>English
+                    </button>
+                    <span class="badge bg-primary-soft text-primary">
+                        <i class="fas fa-user me-1"></i>@User.Identity!.Name
+                    </span>
+                </div>
+            </div>
+
+            @if (TempData["Success"] != null)
+            {
+                <div class="alert alert-success alert-dismissible fade show mx-3 mt-3" role="alert">
+                    <i class="fas fa-check-circle me-2"></i>@TempData["Success"]
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            }
+            @if (TempData["Error"] != null)
+            {
+                <div class="alert alert-danger alert-dismissible fade show mx-3 mt-3" role="alert">
+                    <i class="fas fa-exclamation-circle me-2"></i>@TempData["Error"]
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            }
+
+            <div class="page-content">
+                @RenderBody()
+            </div>
+
+            <div class="modal fade" id="uploadModal" tabindex="-1">
+                <div class="modal-dialog modal-xl">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title"><i class="fas fa-cloud-upload-alt me-2"></i><span data-i18n="upload.title">رفع ملف Excel</span></h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" onclick="resetUploadModal()"></button>
+                        </div>
+                        <form asp-controller="File" asp-action="Upload" method="post" enctype="multipart/form-data" id="uploadForm">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="headerRow" id="headerRowInput" value="1" />
+                            <input type="hidden" name="sheetIndex" id="sheetIndexInput" value="0" />
+
+                            <div class="modal-body">
+
+                                <!-- Step 1: File select -->
+                                <div id="step1">
+                                    <div class="upload-area" id="uploadArea">
+                                        <i class="fas fa-file-excel fa-4x text-success mb-3"></i>
+                                        <p class="mb-2 fw-bold" data-i18n="upload.drop">اسحب وأفلت ملف Excel هنا أو</p>
+                                        <label class="btn btn-outline-primary mb-2">
+                                            <span data-i18n="upload.choose">اختر ملفاً</span>
+                                            <input type="file" name="file" accept=".xlsx,.xls" class="d-none" id="fileInput" required />
+                                        </label>
+                                        <p class="text-muted small mt-1" id="fileName" data-i18n="upload.no_file">لم يتم اختيار ملف</p>
+                                        <p class="text-success small"><i class="fas fa-infinity me-1"></i><span data-i18n="upload.no_limit">لا يوجد حد أقصى لحجم الملف</span></p>
+                                    </div>
+                                </div>
+
+                                <!-- Step 2: Preview + header row selection -->
+                                <div id="step2" class="d-none">
+                                    <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
+                                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="resetUploadModal()">
+                                                <i class="fas fa-arrow-right me-1"></i><span data-i18n="upload.change_file">تغيير الملف</span>
+                                            </button>
+                                            <div id="sheetSelectorWrap" class="d-none d-flex align-items-center gap-1">
+                                                <label class="form-label fw-bold small mb-0 text-nowrap"><i class="fas fa-layer-group me-1 text-primary"></i><span data-i18n="upload.sheet">الشيت:</span></label>
+                                                <select id="sheetSelector" class="form-select form-select-sm" style="max-width:200px" onchange="loadPreview()"></select>
+                                            </div>
+                                            <div>
+                                                <span class="text-muted small" id="previewMeta"></span>
+                                                <span class="badge bg-primary ms-1 d-none" id="previewLimitBadge" style="font-size:.72rem"></span>
+                                            </div>
+                                        </div>
+                                        <span class="badge bg-warning text-dark">
+                                            <i class="fas fa-mouse-pointer me-1"></i>
+                                            <span data-i18n="upload.click_row">اضغط على صف الرؤوس</span>
+                                        </span>
+                                    </div>
+                                    <div style="overflow-x:auto;max-height:520px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:10px">
+                                        <table class="table table-sm table-bordered mb-0" id="previewTable" style="font-size:.8rem;min-width:600px">
+                                            <thead id="previewHead"></thead>
+                                            <tbody id="previewBody"></tbody>
+                                        </table>
+                                    </div>
+                                    <div class="mt-2 p-2 rounded" id="selectedRowInfo" style="background:#f0fdf4;border:1px solid #86efac;display:none">
+                                        <i class="fas fa-check-circle text-success me-1"></i>
+                                        <span id="selectedRowText"></span>
+                                    </div>
+                                </div>
+
+                                <!-- Loading -->
+                                <div id="previewLoading" class="text-center py-4 d-none">
+                                    <div class="spinner-border text-primary" style="width:2rem;height:2rem"></div>
+                                    <p class="mt-2 text-muted small">جاري قراءة الملف...</p>
+                                </div>
+
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" onclick="resetUploadModal()" data-i18n="upload.cancel">إلغاء</button>
+                                <button type="button" class="btn btn-info" id="previewBtn" onclick="loadPreview()" disabled>
+                                    <i class="fas fa-eye me-1"></i><span data-i18n="upload.preview_btn">معاينة واختر الصف</span>
+                                </button>
+                                <button type="submit" class="btn btn-primary d-none" id="uploadBtn">
+                                    <i class="fas fa-upload me-1"></i><span data-i18n="upload.upload_btn">رفع الملف وتحليله</span>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <script>
+            (function() {
+                let selectedHeaderRow = 1;
+                let previewData = null;
+
+                const fileInput = document.getElementById('fileInput');
+                const fileNameEl = document.getElementById('fileName');
+                const uploadArea = document.getElementById('uploadArea');
+                const previewBtn = document.getElementById('previewBtn');
+                const uploadBtn = document.getElementById('uploadBtn');
+
+                if (fileInput) {
+                    fileInput.addEventListener('change', () => {
+                        const f = fileInput.files[0];
+                        if (!f) return;
+                        fileNameEl.textContent = f.name;
+                        previewBtn.disabled = false;
+                        // auto-trigger preview
+                        loadPreview();
+                    });
+                }
+
+                if (uploadArea) {
+                    uploadArea.addEventListener('dragover', e => { e.preventDefault(); uploadArea.classList.add('dragover'); });
+                    uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('dragover'));
+                    uploadArea.addEventListener('drop', e => {
+                        e.preventDefault();
+                        uploadArea.classList.remove('dragover');
+                        if (e.dataTransfer.files[0]) {
+                            fileInput.files = e.dataTransfer.files;
+                            fileNameEl.textContent = e.dataTransfer.files[0].name;
+                            previewBtn.disabled = false;
+                            loadPreview();
+                        }
+                    });
+                }
+
+                window.loadPreview = async function() {
+                    const f = fileInput.files[0];
+                    if (!f) return;
+                    const sheetIdx = parseInt(document.getElementById('sheetSelector')?.value || '0');
+
+                    document.getElementById('step1').classList.add('d-none');
+                    document.getElementById('step2').classList.add('d-none');
+                    document.getElementById('previewLoading').classList.remove('d-none');
+
+                    const fd = new FormData();
+                    fd.append('file', f);
+                    fd.append('sheetIndex', sheetIdx);
+
+                    try {
+                        const resp = await fetch('/File/Preview', { method: 'POST', body: fd });
+                        previewData = await resp.json();
+
+                        document.getElementById('previewLoading').classList.add('d-none');
+
+                        if (previewData.error) {
+                            document.getElementById('step1').classList.remove('d-none');
+                            alert(previewData.error);
+                            return;
+                        }
+
+                        // Populate sheet selector
+                        const sel = document.getElementById('sheetSelector');
+                        const wrap = document.getElementById('sheetSelectorWrap');
+                        if (previewData.sheets && previewData.sheets.length > 1) {
+                            sel.innerHTML = previewData.sheets.map((s,i) => `<option value="${i}">${s}</option>`).join('');
+                            sel.value = sheetIdx;
+                            wrap.classList.remove('d-none');
+                        }
+
+                        document.getElementById('sheetIndexInput').value = sheetIdx;
+                        const totalRows = previewData.totalRows || 0;
+                        const shownRows = (previewData.rows || []).length;
+                        const totalCols = previewData.totalColumns || 0;
+                        document.getElementById('previewMeta').textContent =
+                            t('upload.file_info').replace('{rows}', totalRows.toLocaleString('en')).replace('{cols}', totalCols);
+                        const limitBadge = document.getElementById('previewLimitBadge');
+                        if (shownRows < totalRows) {
+                            limitBadge.textContent = t('upload.preview_limit').replace('{n}', shownRows);
+                            limitBadge.classList.remove('d-none');
+                        } else {
+                            limitBadge.classList.add('d-none');
+                        }
+
+                        renderPreviewTable(previewData.rows);
+                        document.getElementById('step2').classList.remove('d-none');
+                        document.getElementById('step1').classList.add('d-none');
+
+                        // default: select first non-empty row as header
+                        const firstFilled = (previewData.rows || []).findIndex(r => r.some(c => c));
+                        selectRow(firstFilled >= 0 ? firstFilled + 1 : 1);
+
+                    } catch(e) {
+                        document.getElementById('previewLoading').classList.add('d-none');
+                        document.getElementById('step1').classList.remove('d-none');
+                        alert(t('upload.load_fail') + ': ' + e.message);
+                    }
+                };
+
+                window.renderPreviewTable = function(rows) {
+                    const tbody = document.getElementById('previewBody');
+                    tbody.innerHTML = (rows || []).map((row, ri) => `
+                        <tr class="preview-row" data-row="${ri+1}" onclick="selectRow(${ri+1})" style="cursor:pointer">
+                            <td class="text-center fw-bold" style="background:#f8fafc;min-width:50px;font-size:.75rem">${ri+1}</td>
+                            ${row.map(c => `<td style="white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis" title="${c}">${c||'<span class=text-muted>-</span>'}</td>`).join('')}
+                        </tr>`).join('');
+                };
+
+                window.selectRow = function(rowNum) {
+                    selectedHeaderRow = rowNum;
+                    document.getElementById('headerRowInput').value = rowNum;
+
+                    document.querySelectorAll('.preview-row').forEach(tr => {
+                        const r = parseInt(tr.dataset.row);
+                        if (r === rowNum) {
+                            tr.style.background = '#dbeafe';
+                            tr.style.fontWeight = '700';
+                            tr.style.outline = '2px solid #2563eb';
+                        } else if (r > rowNum) {
+                            tr.style.background = '#f0fdf4';
+                            tr.style.fontWeight = '';
+                            tr.style.outline = '';
+                        } else {
+                            tr.style.background = '#fef9c3';
+                            tr.style.fontWeight = '';
+                            tr.style.outline = '';
+                        }
+                    });
+
+                    const row = (previewData?.rows || [])[rowNum - 1] || [];
+                    const cols = row.filter(c => c).slice(0, 5).join(' | ');
+                    document.getElementById('selectedRowText').textContent =
+                        t('upload.row_selected').replace('{n}', rowNum).replace('{cols}', cols + (row.filter(c=>c).length > 5 ? ' ...' : ''));
+                    document.getElementById('selectedRowInfo').style.display = 'block';
+
+                    uploadBtn.classList.remove('d-none');
+                    previewBtn.classList.add('d-none');
+                };
+
+                window.resetUploadModal = function() {
+                    document.getElementById('step1').classList.remove('d-none');
+                    document.getElementById('step2').classList.add('d-none');
+                    document.getElementById('previewLoading').classList.add('d-none');
+                    document.getElementById('selectedRowInfo').style.display = 'none';
+                    document.getElementById('sheetSelectorWrap').classList.add('d-none');
+                    document.getElementById('previewLimitBadge').classList.add('d-none');
+                    fileNameEl.textContent = t('upload.no_file');
+                    previewBtn.disabled = true;
+                    previewBtn.classList.remove('d-none');
+                    uploadBtn.classList.add('d-none');
+                    fileInput.value = '';
+                    previewData = null;
+                    selectedHeaderRow = 1;
+                    document.getElementById('headerRowInput').value = 1;
+                };
+
+                // Reset when modal closes
+                const modal = document.getElementById('uploadModal');
+                if (modal) modal.addEventListener('hidden.bs.modal', resetUploadModal);
+            })();
+            </script>
+        </div>
+    }
+    else
+    {
+        @RenderBody()
+    }
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+    <script>Chart.register(ChartDataLabels);</script>
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+    <script src="~/js/i18n.js" asp-append-version="true"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

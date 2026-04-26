@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(winget install Microsoft.AzureCLI --silent --accept-package-agreements --accept-source-agreements 2>&1)"
+    ]
+  }
+}

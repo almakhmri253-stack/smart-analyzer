@@ -1,0 +1,268 @@
+@model List<SmartAnalyzer.ViewModels.UserItemViewModel>
+@{
+    ViewData["Title"] = "إدارة المستخدمين";
+}
+
+<div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+    <div>
+        <h4 class="fw-bold mb-0"><i class="fas fa-users me-2 text-primary"></i><span data-i18n="um.title">إدارة المستخدمين</span></h4>
+        <p class="text-muted small mb-0" data-i18n="um.subtitle">إضافة وتعديل وحذف المستخدمين وتحديد صلاحياتهم</p>
+    </div>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createModal">
+        <i class="fas fa-user-plus me-2"></i><span data-i18n="um.add_user">إضافة مستخدم</span>
+    </button>
+</div>
+
+<div class="card shadow-sm border-0">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead style="background:#f8fafc">
+                    <tr>
+                        <th class="px-4 py-3">#</th>
+                        <th class="py-3" data-i18n="um.col_name">الاسم</th>
+                        <th class="py-3" data-i18n="um.col_email">البريد الإلكتروني</th>
+                        <th class="py-3" data-i18n="um.col_role">الصلاحية</th>
+                        <th class="py-3" data-i18n="um.col_date">تاريخ الإنشاء</th>
+                        <th class="py-3 text-center" data-i18n="um.col_actions">الإجراءات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @for (int i = 0; i < Model.Count; i++)
+                    {
+                        var u = Model[i];
+                        <tr>
+                            <td class="px-4 text-muted">@(i + 1)</td>
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold text-white"
+                                         style="width:36px;height:36px;background:linear-gradient(135deg,#2563eb,#7c3aed);font-size:.85rem;flex-shrink:0">
+                                        @(u.FullName.Length > 0 ? u.FullName[0].ToString().ToUpper() : "?")
+                                    </div>
+                                    <div>
+                                        <div class="fw-semibold">@u.FullName</div>
+                                        @if (u.IsCurrentUser)
+                                        {
+                                            <span class="badge bg-success-soft text-success" style="font-size:.7rem" data-i18n="um.you">أنت</span>
+                                        }
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="text-muted">@u.Email</td>
+                            <td>
+                                @if (u.Role == "Admin")
+                                {
+                                    <span class="badge rounded-pill px-3 py-2" style="background:#fef3c7;color:#92400e">
+                                        <i class="fas fa-crown me-1"></i><span data-i18n="um.role_admin">مدير</span>
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="badge rounded-pill px-3 py-2" style="background:#eff6ff;color:#1d4ed8">
+                                        <i class="fas fa-user me-1"></i><span data-i18n="um.role_user">مستخدم</span>
+                                    </span>
+                                }
+                            </td>
+                            <td class="text-muted small">@u.CreatedAt.ToString("yyyy/MM/dd")</td>
+                            <td class="text-center">
+                                <button class="btn btn-sm btn-outline-primary me-1"
+                                        onclick="openEditModal('@u.Id','@u.FullName','@u.Email','@u.Role')"
+                                        title="تعديل">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                @if (!u.IsCurrentUser)
+                                {
+                                    <button class="btn btn-sm btn-outline-danger"
+                                            onclick="confirmDelete('@u.Id','@u.FullName')"
+                                            title="حذف">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                    @if (!Model.Any())
+                    {
+                        <tr>
+                            <td colspan="6" class="text-center py-5 text-muted">
+                                <i class="fas fa-users fa-2x mb-2 d-block"></i>
+                                <span data-i18n="um.no_users">لا يوجد مستخدمون</span>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="card-footer bg-transparent border-0 px-4 py-2 text-muted small">
+        <span data-i18n="um.total">إجمالي المستخدمين</span>: <strong>@Model.Count</strong>
+    </div>
+</div>
+
+<!-- Create Modal -->
+<div class="modal fade" id="createModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content border-0 shadow">
+            <form asp-action="Create" method="post">
+                @Html.AntiForgeryToken()
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold"><i class="fas fa-user-plus me-2 text-primary"></i><span data-i18n="um.create_title">إضافة مستخدم جديد</span></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold" data-i18n="um.fullname">الاسم الكامل</label>
+                        <input name="FullName" class="form-control" data-i18n="um.fullname_ph" data-i18n-attr="placeholder" placeholder="أدخل الاسم الكامل" required />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold" data-i18n="um.col_email">البريد الإلكتروني</label>
+                        <input name="Email" type="email" class="form-control" placeholder="example@domain.com" required />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold" data-i18n="um.password">كلمة المرور</label>
+                        <div class="input-group">
+                            <input name="Password" type="password" class="form-control" data-i18n="um.pwd_ph" data-i18n-attr="placeholder" placeholder="6 أحرف على الأقل" id="createPwd" required minlength="6" />
+                            <button type="button" class="btn btn-outline-secondary" onclick="togglePwd('createPwd',this)">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="mb-1">
+                        <label class="form-label fw-semibold" data-i18n="um.col_role">الصلاحية</label>
+                        <div class="d-flex gap-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="Role" value="User" id="roleUser" checked />
+                                <label class="form-check-label" for="roleUser">
+                                    <i class="fas fa-user me-1 text-primary"></i><span data-i18n="um.role_user">مستخدم</span>
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="Role" value="Admin" id="roleAdmin" />
+                                <label class="form-check-label" for="roleAdmin">
+                                    <i class="fas fa-crown me-1 text-warning"></i><span data-i18n="um.role_admin">مدير</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-i18n="um.cancel">إلغاء</button>
+                    <button type="submit" class="btn btn-primary px-4">
+                        <i class="fas fa-save me-1"></i><span data-i18n="um.create_btn">إنشاء</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Modal -->
+<div class="modal fade" id="editModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content border-0 shadow">
+            <form asp-action="Edit" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="Id" id="editId" />
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold"><i class="fas fa-user-edit me-2 text-primary"></i><span data-i18n="um.edit_title">تعديل المستخدم</span></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold" data-i18n="um.fullname">الاسم الكامل</label>
+                        <input name="FullName" id="editFullName" class="form-control" required />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold" data-i18n="um.col_email">البريد الإلكتروني</label>
+                        <input name="Email" id="editEmail" type="email" class="form-control" required />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold" data-i18n="um.col_role">الصلاحية</label>
+                        <div class="d-flex gap-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="Role" value="User" id="editRoleUser" />
+                                <label class="form-check-label" for="editRoleUser">
+                                    <i class="fas fa-user me-1 text-primary"></i><span data-i18n="um.role_user">مستخدم</span>
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="Role" value="Admin" id="editRoleAdmin" />
+                                <label class="form-check-label" for="editRoleAdmin">
+                                    <i class="fas fa-crown me-1 text-warning"></i><span data-i18n="um.role_admin">مدير</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-1">
+                        <label class="form-label fw-semibold">
+                            <span data-i18n="um.new_pwd">كلمة مرور جديدة</span>
+                            <span class="text-muted fw-normal">(<span data-i18n="um.optional">اختياري</span>)</span>
+                        </label>
+                        <div class="input-group">
+                            <input name="NewPassword" type="password" class="form-control" data-i18n="um.new_pwd_ph" data-i18n-attr="placeholder" placeholder="اتركه فارغاً للإبقاء على الحالية" id="editPwd" minlength="6" />
+                            <button type="button" class="btn btn-outline-secondary" onclick="togglePwd('editPwd',this)">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-i18n="um.cancel">إلغاء</button>
+                    <button type="submit" class="btn btn-primary px-4">
+                        <i class="fas fa-save me-1"></i><span data-i18n="um.save">حفظ</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content border-0 shadow">
+            <form asp-action="Delete" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="id" id="deleteId" />
+                <div class="modal-body text-center py-4">
+                    <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                    <h6 class="fw-bold" data-i18n="um.delete_title">حذف المستخدم</h6>
+                    <p class="text-muted mb-0"><span data-i18n="um.delete_confirm">هل أنت متأكد من حذف</span> <strong id="deleteName"></strong>؟</p>
+                    <p class="text-danger small mt-1" data-i18n="um.delete_warning">لا يمكن التراجع عن هذا الإجراء.</p>
+                </div>
+                <div class="modal-footer border-0 justify-content-center pt-0">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-i18n="um.cancel">إلغاء</button>
+                    <button type="submit" class="btn btn-danger px-4">
+                        <i class="fas fa-trash me-1"></i><span data-i18n="um.delete_btn">حذف</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+function openEditModal(id, fullName, email, role) {
+    document.getElementById('editId').value = id;
+    document.getElementById('editFullName').value = fullName;
+    document.getElementById('editEmail').value = email;
+    document.getElementById('editPwd').value = '';
+    document.getElementById(role === 'Admin' ? 'editRoleAdmin' : 'editRoleUser').checked = true;
+    new bootstrap.Modal(document.getElementById('editModal')).show();
+}
+
+function confirmDelete(id, name) {
+    document.getElementById('deleteId').value = id;
+    document.getElementById('deleteName').textContent = name;
+    new bootstrap.Modal(document.getElementById('deleteModal')).show();
+}
+
+function togglePwd(inputId, btn) {
+    const input = document.getElementById(inputId);
+    const isText = input.type === 'text';
+    input.type = isText ? 'password' : 'text';
+    btn.innerHTML = isText ? '<i class="fas fa-eye"></i>' : '<i class="fas fa-eye-slash"></i>';
+}
+</script>
+}

@@ -1,0 +1,660 @@
+@model SmartAnalyzer.ViewModels.DashboardViewModel
+@{
+    ViewData["Title"] = "لوحة التحكم";
+    var selectedFileId = Model.SelectedFile?.Id;
+    var columns = Model.Columns;
+}
+
+<div class="loading-overlay" id="loadingOverlay">
+    <div class="spinner-large"></div>
+</div>
+
+<!-- Stats Row -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-lg-3">
+        <div class="stat-card">
+            <div class="icon icon-blue"><i class="fas fa-file-excel"></i></div>
+            <div class="value">@Model.TotalFiles</div>
+            <div class="label" data-i18n="dsh.files_count">ملفات مرفوعة</div>
+            <i class="fas fa-file-excel bg-icon"></i>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="stat-card">
+            <div class="icon icon-green"><i class="fas fa-database"></i></div>
+            <div class="value">@Model.TotalRecords.ToString("N0")</div>
+            <div class="label" data-i18n="dsh.total_records">إجمالي السجلات</div>
+            <i class="fas fa-database bg-icon"></i>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="stat-card">
+            <div class="icon icon-purple"><i class="fas fa-columns"></i></div>
+            <div class="value">@(Model.SelectedFile?.TotalColumns ?? 0)</div>
+            <div class="label" data-i18n="dsh.current_cols">أعمدة الملف الحالي</div>
+            <i class="fas fa-columns bg-icon"></i>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="stat-card">
+            <div class="icon icon-orange"><i class="fas fa-filter"></i></div>
+            <div class="value">@Model.SavedFilters.Count</div>
+            <div class="label" data-i18n="dsh.saved_filters_lbl">فلاتر محفوظة</div>
+            <i class="fas fa-filter bg-icon"></i>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <!-- Left: File List -->
+    <div class="col-lg-3">
+        <div class="chart-card mb-3">
+            <div class="card-header">
+                <span><i class="fas fa-folder-open me-2 text-warning"></i><span data-i18n="dsh.my_files">ملفاتي</span></span>
+                <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#uploadModal">
+                    <i class="fas fa-plus"></i>
+                </button>
+            </div>
+            <div class="card-body p-2">
+                @if (!Model.UserFiles.Any())
+                {
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-inbox fa-3x mb-2 d-block"></i>
+                        <small data-i18n="dsh.no_files">لا توجد ملفات. ارفع ملفك الأول!</small>
+                    </div>
+                }
+                else
+                {
+                    @foreach (var file in Model.UserFiles)
+                    {
+                        <div class="file-item @(file.Id == selectedFileId ? "active" : "")">
+                            <i class="fas fa-file-excel file-icon"></i>
+                            <div class="file-info">
+                                <div class="file-name" title="@file.FileName">@file.FileName</div>
+                                <div class="file-meta">
+                                    @file.TotalRows <span data-i18n="dsh.record">سجل</span> • @file.UploadedAt.ToString("dd/MM/yyyy")
+                                </div>
+                            </div>
+                            <div class="d-flex gap-1">
+                                <a asp-controller="Analysis" asp-action="Result" asp-route-fileId="@file.Id"
+                                   class="btn btn-sm btn-primary border-0" data-i18n="dsh.analyze_file" data-i18n-attr="title" title="تحليل الملف" onclick="event.stopPropagation()">
+                                    <i class="fas fa-chart-bar"></i>
+                                </a>
+                                <form asp-controller="File" asp-action="Delete" method="post" onsubmit="return confirm(t('dsh.delete_file_confirm'))">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="id" value="@file.Id" />
+                                    <button type="submit" class="btn btn-sm btn-outline-danger border-0" onclick="event.stopPropagation()">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+
+        @if (Model.SavedFilters.Any() && selectedFileId.HasValue)
+        {
+            <div class="chart-card">
+                <div class="card-header">
+                    <span><i class="fas fa-bookmark me-2 text-info"></i><span data-i18n="dsh.saved_filters_title">الفلاتر المحفوظة</span></span>
+                </div>
+                <div class="card-body p-2">
+                    @foreach (var sf in Model.SavedFilters)
+                    {
+                        <div class="d-flex align-items-center justify-content-between p-2 border rounded mb-1">
+                            <span class="small fw-bold cursor-pointer text-primary" onclick="loadSavedFilter(@sf.Id)" style="cursor:pointer">
+                                <i class="fas fa-filter me-1"></i>@sf.Name
+                            </span>
+                            <span class="badge @(sf.LogicOperator == "AND" ? "logic-and" : "logic-or")">@sf.LogicOperator</span>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+
+    <!-- Right: Analysis Panel -->
+    <div class="col-lg-9">
+        @if (Model.SelectedFile == null)
+        {
+            <div class="chart-card" style="min-height:400px">
+                <div class="card-body d-flex flex-column align-items-center justify-content-center" style="min-height:400px">
+                    <i class="fas fa-chart-bar fa-5x text-muted mb-3"></i>
+                    <h4 class="text-muted" data-i18n="dsh.choose_file">اختر ملفاً لبدء التحليل</h4>
+                    <p class="text-muted" data-i18n="dsh.or_upload">أو ارفع ملف Excel جديد</p>
+                    <button class="btn btn-primary btn-lg" data-bs-toggle="modal" data-bs-target="#uploadModal">
+                        <i class="fas fa-cloud-upload-alt me-2"></i><span data-i18n="dsh.upload_excel">رفع ملف Excel</span>
+                    </button>
+                </div>
+            </div>
+        }
+        else
+        {
+            <!-- Filter Builder -->
+            <div class="filter-builder mb-3">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <h5 class="mb-0 fw-bold"><i class="fas fa-filter me-2 text-primary"></i><span data-i18n="dsh.filter_builder">منشئ الفلاتر</span></h5>
+                    <div class="d-flex gap-2 align-items-center">
+                        <span class="text-muted small" data-i18n="dsh.logic_lbl">المنطق:</span>
+                        <button class="btn btn-sm logic-badge logic-and" id="logicBtn" onclick="toggleLogic()">AND</button>
+                        <input type="hidden" id="logicOperator" value="AND" />
+                    </div>
+                </div>
+
+                <div id="filtersContainer"></div>
+
+                <div class="d-flex gap-2 flex-wrap mt-3">
+                    <button class="btn btn-outline-primary btn-sm" onclick="addFilter()">
+                        <i class="fas fa-plus me-1"></i><span data-i18n="dsh.add_condition">إضافة شرط</span>
+                    </button>
+                    <button class="btn btn-primary btn-sm" onclick="applyFilters()">
+                        <i class="fas fa-search me-1"></i><span data-i18n="dsh.apply_filter">تطبيق الفلتر</span>
+                    </button>
+                    <button class="btn btn-outline-secondary btn-sm" onclick="resetFilters()">
+                        <i class="fas fa-undo me-1"></i><span data-i18n="dsh.reset_filters">إعادة تعيين</span>
+                    </button>
+                    <button class="btn btn-outline-success btn-sm" onclick="showSaveFilter()">
+                        <i class="fas fa-save me-1"></i><span data-i18n="dsh.save_filter">حفظ الفلتر</span>
+                    </button>
+                    <button class="btn btn-outline-warning btn-sm" onclick="exportExcel()">
+                        <i class="fas fa-file-excel me-1"></i><span data-i18n="dsh.export_excel">تصدير Excel</span>
+                    </button>
+                </div>
+
+                <div id="saveFilterPanel" class="mt-3 d-none">
+                    <div class="input-group" style="max-width:350px">
+                        <input type="text" id="filterName" class="form-control form-control-sm" data-i18n="dsh.filter_name_ph" data-i18n-attr="placeholder" placeholder="اسم الفلتر..." />
+                        <button class="btn btn-success btn-sm" onclick="saveFilter()" data-i18n="dsh.save">حفظ</button>
+                        <button class="btn btn-secondary btn-sm" onclick="document.getElementById('saveFilterPanel').classList.add('d-none')" data-i18n="dsh.cancel">إلغاء</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results Summary -->
+            <div id="summarySection" class="mb-3 d-none">
+                <div class="chart-card">
+                    <div class="card-header">
+                        <span><i class="fas fa-info-circle me-2 text-info"></i><span data-i18n="dsh.summary_title">ملخص النتائج</span></span>
+                        <span id="resultCount" class="badge bg-primary"></span>
+                    </div>
+                    <div class="card-body">
+                        <div class="summary-grid" id="summaryGrid"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Row -->
+            <div id="chartsSection" class="row g-3 mb-3 d-none">
+                <div class="col-md-8">
+                    <div class="chart-card" id="mainChartCard">
+                        <div class="card-header">
+                            <span><i class="fas fa-chart-bar me-2"></i><span data-i18n="dsh.chart_title">الرسم البياني</span></span>
+                            <div class="d-flex gap-2 align-items-center">
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-outline-secondary" onclick="changeChart('bar')">Bar</button>
+                                <button class="btn btn-outline-secondary" onclick="changeChart('line')">Line</button>
+                                <button class="btn btn-outline-secondary" onclick="changeChart('pie')">Pie</button>
+                                <button class="btn btn-outline-secondary" onclick="changeChart('doughnut')">Doughnut</button>
+                            </div>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="exportWithInlineLegend(mainChart,'mainChart','chart')"
+                                    data-i18n="chart.export_png" data-i18n-attr="title" title="تصدير PNG">
+                                <i class="fas fa-download"></i>
+                            </button>
+                            </div>
+                        </div>
+                        <div class="card-body" style="height:280px">
+                            <canvas id="mainChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="chart-card h-100" id="pieChartCard">
+                        <div class="card-header">
+                            <span><i class="fas fa-chart-pie me-2"></i><span data-i18n="dsh.distribution">التوزيع</span></span>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="exportWithInlineLegend(pieChartInstance,'pieChart','distribution')"
+                                    data-i18n="chart.export_png" data-i18n-attr="title" title="تصدير PNG">
+                                <i class="fas fa-download"></i>
+                            </button>
+                        </div>
+                        <div class="card-body" style="height:280px">
+                            <canvas id="pieChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Data Table -->
+            <div class="chart-card">
+                <div class="card-header">
+                    <span><i class="fas fa-table me-2"></i><span data-i18n="dsh.data_title">البيانات</span></span>
+                    <div class="d-flex align-items-center gap-2">
+                        <input type="text" id="tableSearch" class="form-control form-control-sm" data-i18n="dsh.search_ph" data-i18n-attr="placeholder" placeholder="بحث في الجدول..." style="width:200px" oninput="filterTable(this.value)" />
+                        <select id="pageSizeSelect" class="form-select form-select-sm" style="width:100px" onchange="applyFilters()">
+                            <option value="25">25</option>
+                            <option value="50" selected>50</option>
+                            <option value="100">100</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-wrapper">
+                        <table class="table table-hover data-table mb-0" id="dataTable">
+                            <thead>
+                                <tr>
+                                    @foreach (var col in columns)
+                                    {
+                                        <th onclick="sortBy('@col')">@col <i class="fas fa-sort ms-1 text-white-50 small"></i></th>
+                                    }
+                                </tr>
+                            </thead>
+                            <tbody id="tableBody">
+                                @foreach (var row in Model.PreviewData)
+                                {
+                                    <tr>
+                                        @foreach (var col in columns)
+                                        {
+                                            <td title="@(row.TryGetValue(col, out var v) ? v : "")">@(row.TryGetValue(col, out var val) ? val : "")</td>
+                                        }
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="d-flex align-items-center justify-content-between p-3 border-top">
+                        <span class="text-muted small" id="paginationInfo" data-i18n="dsh.preview_info">عرض أول 5 سجلات (معاينة)</span>
+                        <nav><ul class="pagination pagination-sm mb-0" id="pagination"></ul></nav>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+<script>
+const FILE_ID = @(selectedFileId ?? 0);
+const COLUMNS = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(columns));
+const SAVED_FILTERS = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.SavedFilters));
+
+let currentPage = 1;
+let currentSort = { column: '', asc: true };
+let mainChart = null;
+let pieChartInstance = null;
+let lastResult = null;
+
+const OPERATORS = {
+    string: ['=', '!=', 'contains'],
+    number: ['=', '!=', '>', '<', '>=', '<=', 'between'],
+    date: ['=', '>', '<', '>=', '<=', 'between']
+};
+
+const COL_TYPES = {};
+@if (Model.SelectedFile != null)
+{
+    @foreach (var col in Model.SelectedFile.FileColumns)
+    {
+        @Html.Raw($"COL_TYPES['{col.ColumnName}'] = '{col.DataType}';")
+    }
+}
+
+function addFilter() {
+    const container = document.getElementById('filtersContainer');
+    const idx = container.children.length;
+    const div = document.createElement('div');
+    div.className = 'filter-row';
+    div.innerHTML = buildFilterRow(idx);
+    container.appendChild(div);
+}
+
+function buildFilterRow(idx) {
+    const colOptions = COLUMNS.map(c => `<option value="${c}">${c}</option>`).join('');
+    return `
+        <div class="row g-2 align-items-center">
+            <div class="col-auto">
+                <span class="text-muted small fw-bold">${idx + 1}</span>
+            </div>
+            <div class="col">
+                <select class="form-select form-select-sm col-select" onchange="updateOperators(this)">
+                    <option value="">${t('dsh.col_placeholder')}</option>
+                    ${colOptions}
+                </select>
+            </div>
+            <div class="col-auto">
+                <select class="form-select form-select-sm op-select">
+                    <option>=</option>
+                </select>
+            </div>
+            <div class="col value-col">
+                <input type="text" class="form-control form-control-sm val1" placeholder="${t('j.value_ph')}" />
+            </div>
+            <div class="col value2-col d-none">
+                <input type="text" class="form-control form-control-sm val2" placeholder="${t('j.to_ph')}" />
+            </div>
+            <div class="col-auto">
+                <button class="btn btn-sm btn-outline-danger" onclick="this.closest('.filter-row').remove()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>`;
+}
+
+function updateOperators(select) {
+    const col = select.value;
+    const type = COL_TYPES[col] || 'string';
+    const ops = OPERATORS[type] || OPERATORS.string;
+    const row = select.closest('.filter-row');
+    const opSelect = row.querySelector('.op-select');
+    opSelect.innerHTML = ops.map(o => `<option value="${o}">${o}</option>`).join('');
+    opSelect.onchange = () => toggleBetween(opSelect);
+}
+
+function toggleBetween(select) {
+    const row = select.closest('.filter-row');
+    const val2 = row.querySelector('.value2-col');
+    if (select.value === 'between') val2.classList.remove('d-none');
+    else val2.classList.add('d-none');
+}
+
+function toggleLogic() {
+    const btn = document.getElementById('logicBtn');
+    const inp = document.getElementById('logicOperator');
+    if (inp.value === 'AND') {
+        inp.value = 'OR';
+        btn.textContent = 'OR';
+        btn.className = 'btn btn-sm logic-badge logic-or';
+    } else {
+        inp.value = 'AND';
+        btn.textContent = 'AND';
+        btn.className = 'btn btn-sm logic-badge logic-and';
+    }
+}
+
+function getConditions() {
+    const rows = document.querySelectorAll('.filter-row');
+    return Array.from(rows).map(row => ({
+        column: row.querySelector('.col-select').value,
+        operator: row.querySelector('.op-select').value,
+        value: row.querySelector('.val1').value,
+        value2: row.querySelector('.val2') ? row.querySelector('.val2').value : null
+    })).filter(c => c.column);
+}
+
+async function applyFilters(page = 1) {
+    if (!FILE_ID) return;
+    currentPage = page;
+    const pageSize = parseInt(document.getElementById('pageSizeSelect')?.value || 50);
+    const request = {
+        fileId: FILE_ID,
+        conditions: getConditions(),
+        logicOperator: document.getElementById('logicOperator').value,
+        page: currentPage,
+        pageSize: pageSize,
+        sortColumn: currentSort.column,
+        sortAscending: currentSort.asc
+    };
+
+    document.getElementById('loadingOverlay').style.display = 'flex';
+    try {
+        const resp = await fetch('/Analysis/Filter', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(request)
+        });
+        const result = await resp.json();
+        lastResult = result;
+        renderResult(result);
+    } finally {
+        document.getElementById('loadingOverlay').style.display = 'none';
+    }
+}
+
+function renderResult(result) {
+    renderTable(result.data, result.columns);
+    renderSummary(result.summary, result.totalCount);
+    renderCharts(result.chartData);
+    renderPagination(result.totalCount, result.page, result.pageSize);
+    document.getElementById('summarySection').classList.remove('d-none');
+    document.getElementById('chartsSection').classList.remove('d-none');
+}
+
+function renderTable(data, cols) {
+    const thead = document.querySelector('#dataTable thead tr');
+    thead.innerHTML = cols.map(c =>
+        `<th onclick="sortBy('${c}')" class="${currentSort.column === c ? 'text-warning' : ''}">${c} <i class="fas fa-sort ms-1 text-white-50 small"></i></th>`
+    ).join('');
+
+    const tbody = document.getElementById('tableBody');
+    if (!data.length) {
+        tbody.innerHTML = `<tr><td colspan="${cols.length}" class="text-center text-muted py-4">${t('dsh.no_results')}</td></tr>`;
+        return;
+    }
+    tbody.innerHTML = data.map(row =>
+        `<tr>${cols.map(c => `<td title="${row[c] || ''}">${row[c] || ''}</td>`).join('')}</tr>`
+    ).join('');
+}
+
+function renderSummary(summary, count) {
+    document.getElementById('resultCount').textContent = `${count.toLocaleString('en')} ${t('dsh.record')}`;
+    const grid = document.getElementById('summaryGrid');
+    const opLabels = { sum: t('dsh.sum'), avg: t('dsh.avg'), min: t('dsh.min'), max: t('dsh.max') };
+    const items = [{ label: t('dsh.total_results'), value: count.toLocaleString('en') }];
+    for (const [key, val] of Object.entries(summary)) {
+        if (key === 'totalRows') continue;
+        const parts = key.split('_');
+        const op = parts[parts.length - 1];
+        const col = parts.slice(0, -1).join('_');
+        items.push({ label: `${col} (${opLabels[op] || op})`, value: Number(val).toLocaleString('en') });
+    }
+    grid.innerHTML = items.map(i => `
+        <div class="summary-item">
+            <div class="s-label">${i.label}</div>
+            <div class="s-value">${i.value}</div>
+        </div>`).join('');
+}
+
+function renderCharts(chartData) {
+    if (!chartData || !chartData.labels.length) return;
+    const colors = ['#2563eb','#10b981','#f59e0b','#ef4444','#7c3aed','#06b6d4','#ec4899','#84cc16'];
+
+    if (mainChart) mainChart.destroy();
+    const ctx = document.getElementById('mainChart').getContext('2d');
+    mainChart = new Chart(ctx, {
+        type: chartData.chartType || 'bar',
+        data: {
+            labels: chartData.labels,
+            datasets: [{
+                label: chartData.columnName,
+                data: chartData.values,
+                backgroundColor: colors,
+                borderColor: colors,
+                borderWidth: 2,
+                borderRadius: 6
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: chartData.chartType === 'pie' || chartData.chartType === 'doughnut' ? {} : {
+                y: { beginAtZero: true, grid: { color: '#f0f4f8' } }
+            }
+        }
+    });
+
+    if (pieChartInstance) pieChartInstance.destroy();
+    const pCtx = document.getElementById('pieChart').getContext('2d');
+    pieChartInstance = new Chart(pCtx, {
+        type: 'doughnut',
+        data: {
+            labels: chartData.labels,
+            datasets: [{ data: chartData.values, backgroundColor: colors }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { font: { family: 'Cairo' } } } } }
+    });
+}
+
+function changeChart(type) {
+    if (!mainChart || !lastResult) return;
+    mainChart.destroy();
+    const ctx = document.getElementById('mainChart').getContext('2d');
+    const colors = ['#2563eb','#10b981','#f59e0b','#ef4444','#7c3aed','#06b6d4','#ec4899','#84cc16'];
+    mainChart = new Chart(ctx, {
+        type: type,
+        data: {
+            labels: lastResult.chartData.labels,
+            datasets: [{
+                label: lastResult.chartData.columnName,
+                data: lastResult.chartData.values,
+                backgroundColor: colors,
+                borderColor: colors,
+                borderWidth: 2,
+                borderRadius: type === 'bar' ? 6 : 0
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: type === 'pie' || type === 'doughnut' } },
+            scales: type === 'pie' || type === 'doughnut' ? {} : {
+                y: { beginAtZero: true, grid: { color: '#f0f4f8' } }
+            }
+        }
+    });
+}
+
+function renderPagination(total, page, pageSize) {
+    const totalPages = Math.ceil(total / pageSize);
+    const s = ((page-1)*pageSize+1).toLocaleString('en');
+    const e = Math.min(page*pageSize, total).toLocaleString('en');
+    document.getElementById('paginationInfo').textContent =
+        `${t('dsh.showing')} ${s} - ${e} ${t('dsh.of')} ${total.toLocaleString('en')} ${t('dsh.record')}`;
+
+    const ul = document.getElementById('pagination');
+    if (totalPages <= 1) { ul.innerHTML = ''; return; }
+
+    let html = '';
+    if (page > 1) html += `<li class="page-item"><a class="page-link" onclick="applyFilters(${page-1})">‹</a></li>`;
+    const start = Math.max(1, page - 2), end = Math.min(totalPages, page + 2);
+    for (let i = start; i <= end; i++) {
+        html += `<li class="page-item ${i === page ? 'active' : ''}"><a class="page-link" onclick="applyFilters(${i})">${i}</a></li>`;
+    }
+    if (page < totalPages) html += `<li class="page-item"><a class="page-link" onclick="applyFilters(${page+1})">›</a></li>`;
+    ul.innerHTML = html;
+}
+
+function sortBy(col) {
+    if (currentSort.column === col) currentSort.asc = !currentSort.asc;
+    else { currentSort.column = col; currentSort.asc = true; }
+    applyFilters(currentPage);
+}
+
+function filterTable(query) {
+    const rows = document.querySelectorAll('#tableBody tr');
+    query = query.toLowerCase();
+    rows.forEach(row => {
+        row.style.display = row.textContent.toLowerCase().includes(query) ? '' : 'none';
+    });
+}
+
+function resetFilters() {
+    document.getElementById('filtersContainer').innerHTML = '';
+    applyFilters(1);
+}
+
+function showSaveFilter() {
+    document.getElementById('saveFilterPanel').classList.toggle('d-none');
+}
+
+async function saveFilter() {
+    const name = document.getElementById('filterName').value.trim();
+    if (!name) { alert(t('dsh.enter_filter_name')); return; }
+    const request = {
+        fileId: FILE_ID,
+        conditions: getConditions(),
+        logicOperator: document.getElementById('logicOperator').value,
+        saveFilterName: name,
+        page: 1, pageSize: 50
+    };
+    const resp = await fetch('/Analysis/SaveFilter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request)
+    });
+    const r = await resp.json();
+    if (r.success) {
+        document.getElementById('saveFilterPanel').classList.add('d-none');
+        document.getElementById('filterName').value = '';
+        alert(t('dsh.filter_saved_ok'));
+        location.reload();
+    }
+}
+
+async function exportExcel() {
+    const request = {
+        fileId: FILE_ID,
+        conditions: getConditions(),
+        logicOperator: document.getElementById('logicOperator').value,
+        page: 1, pageSize: 999999
+    };
+    const resp = await fetch('/Analysis/ExportExcel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request)
+    });
+    const blob = await resp.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'results.xlsx'; a.click();
+    URL.revokeObjectURL(url);
+}
+
+function loadSavedFilter(id) {
+    const sf = SAVED_FILTERS.find(f => f.id === id);
+    if (!sf) return;
+    document.getElementById('filtersContainer').innerHTML = '';
+    document.getElementById('logicOperator').value = sf.logicOperator;
+    const btn = document.getElementById('logicBtn');
+    btn.textContent = sf.logicOperator;
+    btn.className = `btn btn-sm logic-badge logic-${sf.logicOperator.toLowerCase()}`;
+    sf.conditions.forEach((c, i) => {
+        addFilter();
+        const rows = document.querySelectorAll('.filter-row');
+        const row = rows[rows.length - 1];
+        row.querySelector('.col-select').value = c.column;
+        updateOperators(row.querySelector('.col-select'));
+        row.querySelector('.op-select').value = c.operator;
+        row.querySelector('.val1').value = c.value;
+        if (c.value2 && row.querySelector('.val2')) {
+            row.querySelector('.val2').value = c.value2;
+            row.querySelector('.value2-col').classList.remove('d-none');
+        }
+    });
+    applyFilters(1);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    if (!FILE_ID) addFilter();
+    else applyFilters(1);
+
+    const sidebarToggle = document.getElementById('sidebarToggle');
+    if (sidebarToggle) {
+        sidebarToggle.addEventListener('click', () => {
+            document.getElementById('sidebar').classList.toggle('collapsed');
+            document.getElementById('mainContent').classList.toggle('expanded');
+        });
+    }
+});
+
+document.addEventListener('langChanged', () => {
+    if (FILE_ID && lastResult) renderResult(lastResult);
+    document.querySelectorAll('.filter-row').forEach((row, idx) => {
+        const sel = row.querySelector('.col-select');
+        const opt = sel.querySelector('option[value=""]');
+        if (opt) opt.textContent = t('dsh.col_placeholder');
+        row.querySelector('.val1').placeholder = t('j.value_ph');
+        const val2 = row.querySelector('.val2');
+        if (val2) val2.placeholder = t('j.to_ph');
+    });
+});
+</script>
+}

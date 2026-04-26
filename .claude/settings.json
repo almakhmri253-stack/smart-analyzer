@@ -1,0 +1,49 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Start-Process -FilePath \"cmd.exe\" -ArgumentList \"/c cd /d `\"c:\\\\Users\\\\㠧 ����\\\\Desktop\\\\newproject\\\\anlyzing\\\\SmartAnalyzer`\" && dotnet run --launch-profile http\" -WindowStyle Normal)",
+      "PowerShell(Stop-Process -Id 17940 -Force -ErrorAction SilentlyContinue)",
+      "PowerShell(Get-NetTCPConnection -LocalPort 5168 -ErrorAction SilentlyContinue)",
+      "PowerShell(Stop-Process -Force)",
+      "Bash(netstat -ano)",
+      "Read(//tmp/**)",
+      "Bash(curl -s -c /tmp/cookies2.txt -b /tmp/cookies2.txt 'http://localhost:5168/Analysis/Result?fileId=3' -o /tmp/analysis.html -w '%{http_code} %{url_effective}')",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5168/)",
+      "Read(//c/Users/عبد العزيز/**)",
+      "Read(//c/Users/عبد العزيز/Desktop/**)",
+      "Bash(dotnet run *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5168)",
+      "Read(//c/Users/㠧 ����/Desktop/**)",
+      "PowerShell(Write-Host \"Downloading cloudflared...\"; Invoke-WebRequest -Uri \"https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe\" -OutFile \"C:\\\\Users\\\\عبد العزيز\\\\Desktop\\\\cf.exe\" -UseBasicParsing; Write-Host \"Done: $\\(\\(Get-Item 'C:\\\\Users\\\\عبد العزيز\\\\Desktop\\\\cf.exe'\\).Length\\) bytes\")",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(curl -sk -o /dev/null -w \"%{http_code}\" \"https://bc63b83e525369ca-199-48-224-197.serveousercontent.com/\")",
+      "Bash(curl -sk -o /dev/null -w \"%{http_code}\" \"http://localhost:5168/\")",
+      "Bash(awk '{print $1}')",
+      "Bash(xargs kill *)",
+      "Bash(ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=30 -R 443:localhost:7246 serveo.net)",
+      "Bash(ssh -o StrictHostKeyChecking=no -R 80:localhost:5168 nokey@localhost.run)",
+      "Bash(ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=30 -o ServerAliveCountMax=10 -R 80:localhost:5168 nokey@localhost.run)",
+      "Bash(curl -sk -L -o /dev/null -w \"%{http_code} %{url_effective}\" \"https://be4c0bdf7cfb62.lhr.life/\")",
+      "Bash(taskkill /F /IM \"dotnet.exe\")",
+      "Bash(curl -sk http://localhost:5168/ -o /dev/null -w \"%{http_code}\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code} %{url_effective}\" http://localhost:5168/)",
+      "Bash(curl -sv http://localhost:5168/)",
+      "PowerShell(Get-NetTCPConnection -LocalPort 5168 -State Listen | Select-Object LocalAddress,LocalPort,@{n=\"PID\";e={$_.OwningProcess}} | ForEach-Object { $_ | Add-Member -NotePropertyName \"ProcessName\" -NotePropertyValue \\(Get-Process -Id $_.PID -ErrorAction SilentlyContinue\\).Name -PassThru })",
+      "PowerShell(netstat -ano)",
+      "Bash(taskkill /F /PID 19356)",
+      "PowerShell(Stop-Process -Id 19356 -Force -ErrorAction SilentlyContinue)",
+      "PowerShell($env:ASPNETCORE_ENVIRONMENT = \"Development\"; Start-Process -FilePath \"dotnet\" -ArgumentList \"run --no-build -c Release\" -WorkingDirectory \"c:\\\\Users\\\\عبد العزيز\\\\Desktop\\\\newproject\\\\anlyzing\\\\SmartAnalyzer\" -NoNewWindow -RedirectStandardOutput \"C:\\\\Users\\\\عبد العزيز\\\\Desktop\\\\app-out.txt\" -RedirectStandardError \"C:\\\\Users\\\\عبد العزيز\\\\Desktop\\\\app-err.txt\"; Start-Sleep -Seconds 8; Get-Content \"C:\\\\Users\\\\عبد العزيز\\\\Desktop\\\\app-err.txt\" -ErrorAction SilentlyContinue | Select-String \"Now listening|error\" -CaseSensitive:$false | Select-Object -First 10)",
+      "Bash(curl -s http://localhost:5168/ -o /dev/null)",
+      "PowerShell(Stop-Process -Name \"dotnet\" -Force -ErrorAction SilentlyContinue)",
+      "PowerShell($env:ASPNETCORE_ENVIRONMENT = \"Development\"; Start-Process -FilePath \"dotnet\" -ArgumentList \"run --no-build -c Release\" -WorkingDirectory \"c:\\\\Users\\\\عبد العزيز\\\\Desktop\\\\newproject\\\\anlyzing\\\\SmartAnalyzer\" -NoNewWindow -RedirectStandardOutput \"C:\\\\Users\\\\عبد العزيز\\\\Desktop\\\\app-out.txt\" -RedirectStandardError \"C:\\\\Users\\\\عبد العزيز\\\\Desktop\\\\app-err.txt\"; Write-Host \"Started\")",
+      "Bash(curl -sv \"https://be4c0bdf7cfb62.lhr.life/\")",
+      "Bash(curl -s -I \"https://be4c0bdf7cfb62.lhr.life/\")",
+      "Bash(curl -sL -o /dev/null -w \"%{http_code} %{url_effective}\" \"https://be4c0bdf7cfb62.lhr.life/\")",
+      "PowerShell(if \\(Test-Path \"C:\\\\Users\\\\عبد العزيز\\\\Desktop\\\\SmartAnalyzer-Deploy\"\\) { Get-ChildItem \"C:\\\\Users\\\\عبد العزيز\\\\Desktop\\\\SmartAnalyzer-Deploy\" | Select-Object Name, @{n=\"MB\";e={[math]::Round\\($_.Length/1MB,1\\)}} } else { Write-Host \"Folder not created yet\" })",
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\عبد العزيز\\\\Desktop\\\\SmartAnalyzer-Deploy\" | Select-Object Name, @{n=\"MB\";e={[math]::Round\\($_.Length/1MB,1\\)}} | Format-Table -AutoSize)"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\㠧 ����\\Desktop"
+    ]
+  }
+}

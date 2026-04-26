@@ -1,0 +1,21 @@
+## .NET
+obj/
+bin/
+*.user
+*.suo
+.vs/
+
+## Secrets & certs
+appsettings.Development.json
+*.pfx
+*.pem
+*.key
+
+## Logs & uploads
+logs/
+Uploads/
+*.log
+
+## OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,1530 @@
+@model SmartAnalyzer.ViewModels.AnalysisResultViewModel
+@{
+    ViewData["Title"] = "تحليل: " + Model.FileName;
+    var allCols = Model.Columns.ToList();
+}
+
+<div class="loading-overlay" id="loadingOverlay">
+    <div class="text-center">
+        <div class="spinner-large mx-auto mb-3"></div>
+        <p class="fw-bold text-primary" data-i18n="a.loading">جاري التحليل...</p>
+    </div>
+</div>
+
+<!-- ══════════════════ HEADER ══════════════════ -->
+<div class="analysis-top mb-4">
+    <div class="d-flex align-items-start justify-content-between flex-wrap gap-3">
+        <div>
+            <div class="d-flex align-items-center gap-2 mb-2">
+                <a asp-controller="Dashboard" asp-action="Index"
+                   class="btn btn-sm" style="background:rgba(255,255,255,0.15);color:white;border:none">
+                    <i class="fas fa-arrow-right me-1"></i><span data-i18n="a.back">رجوع</span>
+                </a>
+                <h4 class="mb-0"><i class="fas fa-file-excel me-2" style="color:#10b981"></i>@Model.FileName</h4>
+            </div>
+            <div class="d-flex flex-wrap gap-2 mb-3">
+                <span class="file-badge"><i class="fas fa-table me-1"></i>@Model.TotalRows.ToString("N0") <span data-i18n="a.row">صف</span></span>
+                <span class="file-badge"><i class="fas fa-columns me-1"></i>@Model.TotalColumns <span data-i18n="a.col">عمود</span></span>
+                <span class="file-badge" id="filteredBadge"><i class="fas fa-filter me-1"></i><span data-i18n="a.all_data">كل البيانات</span></span>
+            </div>
+            <div class="quality-bar-wrap">
+                <span style="font-size:.8rem;opacity:.8" data-i18n="a.quality">جودة البيانات:</span>
+                <div class="quality-bar"><div class="quality-fill" id="qualityFill" style="width:0%"></div></div>
+                <span id="qualityPct" style="font-size:.8rem;font-weight:700">-</span>
+            </div>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            <button class="btn btn-sm" style="background:rgba(255,255,255,0.15);color:white;border:1px solid rgba(255,255,255,0.3)"
+                    onclick="toggleSavePanel()">
+                <i class="fas fa-bookmark me-1"></i><span data-i18n="a.save_filter">حفظ الفلتر</span>
+            </button>
+            <button class="btn btn-sm" style="background:rgba(255,255,255,0.15);color:white;border:1px solid rgba(255,255,255,0.3)"
+                    onclick="toggleSavedPanel()">
+                <i class="fas fa-history me-1"></i><span data-i18n="a.filters_btn">الفلاتر</span>
+            </button>
+            <button class="btn btn-sm" style="background:#10b981;color:white;border:none" onclick="exportExcel()">
+                <i class="fas fa-file-excel me-1"></i><span data-i18n="a.export">تصدير</span>
+            </button>
+            <button type="button" class="btn btn-sm" style="background:rgba(255,255,255,0.15);color:white;border:1px solid rgba(255,255,255,0.3)"
+                    onclick="doExportCompliance();setTimeout(doExportCrossTab,400)"
+                    title="تصدير جميع المخططات">
+                <i class="fas fa-images me-1"></i><span data-i18n="chart.export_all">تصدير جميع المخططات</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Save filter panel -->
+    <div id="saveFilterPanel" class="mt-3 d-none">
+        <div class="d-flex gap-2 align-items-center" style="max-width:380px">
+            <input type="text" id="filterName" class="form-control form-control-sm"
+                   placeholder="اسم الفلتر..." style="background:rgba(255,255,255,0.9)" />
+            <button class="btn btn-sm btn-success" onclick="doSaveFilter()"><i class="fas fa-check"></i></button>
+            <button class="btn btn-sm" style="background:rgba(255,255,255,0.2);color:white;border:none"
+                    onclick="toggleSavePanel()"><i class="fas fa-times"></i></button>
+        </div>
+    </div>
+
+    <!-- Saved filters panel -->
+    <div id="savedFiltersPanel" class="mt-3 d-none">
+        <div style="background:rgba(255,255,255,0.1);border-radius:10px;padding:1rem">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <span style="font-size:.85rem;font-weight:700"><i class="fas fa-bookmark me-1"></i><span data-i18n="a.saved_filters">الفلاتر المحفوظة</span></span>
+                <button class="btn btn-sm" style="background:rgba(255,255,255,0.2);color:white;border:none;font-size:.75rem"
+                        onclick="loadSavedFilters()"><i class="fas fa-sync-alt"></i></button>
+            </div>
+            <div id="savedFiltersList"><span style="font-size:.8rem;opacity:.7">جاري التحميل...</span></div>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════ ENTITY CARDS ══════════════════ -->
+<div class="entity-section" id="entitySection">
+    <div class="entity-section-header">
+        <div class="entity-section-title">
+            <i class="fas fa-building"></i>
+            <span id="entitySectionLabel">الكيانات</span>
+            <span class="badge ms-1" style="background:rgba(255,255,255,0.15);color:white" id="entityTotalBadge">0</span>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <label style="color:rgba(255,255,255,0.7);font-size:.8rem" data-i18n="a.col_label">عمود:</label>
+            <select class="entity-col-select" id="entityColSelect" onchange="loadEntityCards()">
+                @foreach (var col in allCols.Where(c => c.DataType == "string"))
+                {
+                    @if (col.Name == "OQ Entities") {
+                        <option value="@col.Name" selected>@col.Name</option>
+                    } else {
+                        <option value="@col.Name">@col.Name</option>
+                    }
+                }
+            </select>
+        </div>
+    </div>
+    <div class="entity-cards-row" id="entityCardsRow">
+        <div class="entity-card card-all">
+            <div class="entity-avatar" style="background:rgba(255,255,255,0.2)"><i class="fas fa-globe"></i></div>
+            <div class="entity-name">جاري التحميل...</div>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════ TOTALS STRIP ══════════════════ -->
+<div class="row g-3 mb-4">
+
+    <!-- KPI 1: Total Contracts -->
+    <div class="col-md-6">
+        <div class="total-kpi-card kpi-blue">
+            <div class="total-kpi-icon"><i class="fas fa-file-contract"></i></div>
+            <div class="total-kpi-body">
+                <div class="total-kpi-label" data-i18n="a.kpi_count">إجمالي عدد العقود</div>
+                <div class="total-kpi-value" id="kpiContractCount">—</div>
+                <div class="total-kpi-sub" id="kpiContractSub">من إجمالي البيانات</div>
+            </div>
+            <div class="total-kpi-bg-icon"><i class="fas fa-file-contract"></i></div>
+        </div>
+    </div>
+
+    <!-- KPI 2: Total Contract Value -->
+    <div class="col-md-6">
+        <div class="total-kpi-card kpi-green">
+            <div class="total-kpi-icon"><i class="fas fa-coins"></i></div>
+            <div class="total-kpi-body">
+                <div class="total-kpi-label" data-i18n="a.kpi_value">إجمالي قيمة العقود</div>
+                <div class="total-kpi-value" id="kpiContractValue">—</div>
+                <div class="total-kpi-sub" id="kpiContractValueSub">Total Contract Value (USD)</div>
+            </div>
+            <div class="total-kpi-bg-icon"><i class="fas fa-coins"></i></div>
+        </div>
+    </div>
+
+
+</div>
+
+<!-- ══════════════════ COMPLIANCE CHART ══════════════════ -->
+<div class="chart-card mb-4" id="complianceCard">
+    <div class="card-header">
+        <span><i class="fas fa-shield-alt me-2 text-success"></i>Compliance of Omanization</span>
+        <div class="d-flex gap-2 align-items-center">
+            <select id="complianceCol" class="form-select form-select-sm" style="width:220px;font-size:.8rem" onchange="drawComplianceChart()">
+                @foreach (var col in allCols.Where(c => c.DataType == "string"))
+                {
+                    if (col.Name == "Comply or Not_ MOL") {
+                        <option value="@col.Name" selected>@col.Name</option>
+                    } else if (col.Name == "MOL Omanization Compliance Description") {
+                        <option value="@col.Name">@col.Name</option>
+                    } else {
+                        <option value="@col.Name">@col.Name</option>
+                    }
+                }
+            </select>
+            <div class="btn-group btn-group-sm">
+                @foreach (var t in new[] { ("doughnut","fa-circle-notch"), ("pie","fa-chart-pie"), ("bar","fa-chart-bar"), ("polarArea","fa-sun") })
+                {
+                    <button type="button" class="btn btn-outline-secondary chart-type-btn @(t.Item1=="doughnut"?"active":"")"
+                            data-type="@t.Item1" onclick="setComplianceType(this)">
+                        <i class="fas @t.Item2"></i>
+                    </button>
+                }
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="doExportCompliance()"
+                    title="تصدير PNG">
+                <i class="fas fa-download"></i>
+            </button>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="row g-3 align-items-center">
+            <div class="col-md-5" style="height:320px">
+                <canvas id="complianceChart"></canvas>
+            </div>
+            <div class="col-md-7">
+                <div id="complianceLegend" class="d-flex flex-column gap-2"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════ CROSS-TAB CHART ══════════════════ -->
+<div class="chart-card mb-4" id="crossTabCard">
+    <div class="card-header">
+        <span><i class="fas fa-chart-bar me-2 text-primary"></i>Compliance of Omanization <span style="opacity:.5">vs</span> Vendor Category</span>
+        <div class="d-flex gap-2 align-items-center flex-wrap">
+            <select id="crossCol1" class="form-select form-select-sm" style="width:220px;font-size:.8rem" onchange="drawCrossTabChart()">
+                @foreach (var col in allCols.Where(c => c.DataType == "string"))
+                {
+                    if (col.Name == "Comply or Not_ MOL") {
+                        <option value="@col.Name" selected>@col.Name</option>
+                    } else {
+                        <option value="@col.Name">@col.Name</option>
+                    }
+                }
+            </select>
+            <span style="font-size:.75rem;color:#9ca3af;font-weight:700">VS</span>
+            <select id="crossCol2" class="form-select form-select-sm" style="width:220px;font-size:.8rem" onchange="drawCrossTabChart()">
+                @foreach (var col in allCols.Where(c => c.DataType == "string"))
+                {
+                    if (col.Name == "Vendor Category") {
+                        <option value="@col.Name" selected>@col.Name</option>
+                    } else {
+                        <option value="@col.Name">@col.Name</option>
+                    }
+                }
+            </select>
+            <div class="btn-group btn-group-sm" id="crossTypeGroup">
+                @foreach (var t in new[] { ("bar","fa-chart-bar"), ("line","fa-chart-line"), ("polarArea","fa-sun") })
+                {
+                    <button type="button" class="btn btn-outline-secondary chart-type-btn @(t.Item1=="bar"?"active":"")"
+                            data-type="@t.Item1" onclick="setCrossTabType(this)">
+                        <i class="fas @t.Item2"></i>
+                    </button>
+                }
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="doExportCrossTab()"
+                    title="تصدير PNG">
+                <i class="fas fa-download"></i>
+            </button>
+        </div>
+    </div>
+    <div class="card-body" style="height:380px">
+        <canvas id="crossTabChart"></canvas>
+    </div>
+</div>
+
+<!-- ══════════════════ FILTER + TABLE ══════════════════ -->
+<div class="chart-card mb-4">
+    <!-- Filter header (collapsible) -->
+    <div class="filter-section-header" onclick="toggleFilterSection()">
+        <span class="fw-bold">
+            <i class="fas fa-filter me-2 text-primary"></i><span data-i18n="a.conditions_title">الشروط والفلاتر</span>
+            <span class="badge bg-primary ms-2" id="conditionsCount">0</span>
+        </span>
+        <div class="d-flex align-items-center gap-2">
+            <button class="btn btn-sm logic-badge logic-and" id="logicBtn"
+                    onclick="event.stopPropagation();toggleLogic()">AND</button>
+            <input type="hidden" id="logicOperator" value="AND" />
+            <i class="fas fa-chevron-down text-muted" id="filterChevron" style="transition:transform .2s"></i>
+        </div>
+    </div>
+
+    <div id="filterSection">
+        <div class="p-3">
+            <div id="filtersContainer" class="mb-3"></div>
+            <div class="d-flex gap-2 flex-wrap">
+                <button class="btn btn-outline-primary btn-sm" onclick="addFilter()">
+                    <i class="fas fa-plus me-1"></i><span data-i18n="a.new_cond">شرط جديد</span>
+                </button>
+                <button class="btn btn-primary btn-sm" onclick="runAll()">
+                    <i class="fas fa-play me-1"></i><span data-i18n="a.apply">تطبيق</span>
+                </button>
+                <button class="btn btn-outline-secondary btn-sm" onclick="resetAll()">
+                    <i class="fas fa-undo me-1"></i><span data-i18n="a.reset">إعادة تعيين</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Table header -->
+    <div class="card-header" style="border-top:1px solid var(--border)">
+        <span>
+            <i class="fas fa-table me-2"></i><span data-i18n="a.data_title">البيانات</span>
+            <span class="badge bg-secondary ms-1" id="tableRowCount">-</span>
+        </span>
+        <div class="d-flex gap-2 align-items-center flex-wrap">
+            <input type="text" id="tableSearch" class="form-control form-control-sm"
+                   data-i18n="a.search_ph" data-i18n-attr="placeholder"
+                   placeholder="بحث في الجدول..." style="width:200px" oninput="filterTable(this.value)" />
+            <select id="pageSizeSelect" class="form-select form-select-sm" style="width:85px" onchange="runAll()">
+                <option value="25">25</option>
+                <option value="50" selected>50</option>
+                <option value="100">100</option>
+                <option value="200">200</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="card-body p-0">
+        <div class="table-wrapper">
+            <table class="table table-hover data-table mb-0" id="dataTable">
+                <thead>
+                    <tr>
+                        @foreach (var col in allCols)
+                        {
+                            <th onclick="sortBy('@col.Name')">
+                                <span class="col-type-dot dot-@col.DataType"></span>@col.Name
+                                <i class="fas fa-sort ms-1 text-white-50 small"></i>
+                            </th>
+                        }
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                    @foreach (var row in Model.PreviewData)
+                    {
+                        <tr>
+                            @foreach (var col in allCols)
+                            {
+                                <td>@(row.TryGetValue(col.Name, out var v) ? v : "")</td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <div class="d-flex align-items-center justify-content-between p-3 border-top flex-wrap gap-2">
+            <span class="text-muted small" id="paginationInfo"></span>
+            <nav><ul class="pagination pagination-sm mb-0" id="pagination"></ul></nav>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════ ENTITY DETAILS MODAL ══════════════════ -->
+<div class="modal fade" id="entityDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content" style="border:none;border-radius:14px;overflow:hidden">
+            <div class="modal-header py-3 px-4" style="background:linear-gradient(135deg,#1e3a5f,#0f1e3c);color:white;border:none">
+                <div class="d-flex align-items-center gap-3">
+                    <div id="entityModalAvatar"
+                         style="width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;
+                                font-weight:800;font-size:.85rem;flex-shrink:0;color:white"></div>
+                    <div>
+                        <h5 class="modal-title mb-0 fw-bold" id="entityModalTitle">—</h5>
+                        <small id="entityModalCount" style="opacity:.65;font-size:.78rem"></small>
+                    </div>
+                </div>
+                <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0" id="entityModalBody" style="min-height:200px">
+                <div class="text-center py-5">
+                    <i class="fas fa-spinner fa-spin fa-2x text-primary"></i>
+                </div>
+            </div>
+            <div class="modal-footer" style="background:#f8fafc;border-top:1px solid #e2e8f0">
+                <button type="button" id="entityModalFilterBtn" class="btn btn-primary btn-sm">
+                    <i class="fas fa-filter me-1"></i><span data-i18n="j.filter_in_table">تصفية في الجدول</span>
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>إغلاق
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+// ── Constants ──────────────────────────────────────────────────
+const FILE_ID        = @Model.FileId;
+const Model_TotalRows = @Model.TotalRows;
+const ALL_COLS  = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+    Model.Columns.Select(c => new { name = c.Name, type = c.DataType })));
+const COL_TYPES = Object.fromEntries(ALL_COLS.map(c => [c.name, c.type]));
+const COL_NAMES = ALL_COLS.map(c => c.name);
+const OPERATORS = {
+    string: ['=','!=','contains'],
+    number: ['=','!=','>','<','>=','<=','between'],
+    date:   ['=','>','<','>=','<=','between']
+};
+const PALETTE = ['#2563eb','#10b981','#f59e0b','#ef4444','#7c3aed',
+                 '#06b6d4','#ec4899','#84cc16','#f97316','#14b8a6','#8b5cf6','#e11d48'];
+
+// ── State ──────────────────────────────────────────────────────
+let currentPage  = 1;
+let currentSort  = { column: '', asc: true };
+let compChart    = null;
+let primaryChart = null;
+let autoCharts   = {};
+let lastResult   = null;
+let selectedX = '', selectedY = '', pickStep = 0;
+let chartDataSets = [];
+let filterOpen = true;
+let complianceChartInst = null;
+let complianceChartType = 'doughnut';
+
+// ── Main entry ─────────────────────────────────────────────────
+async function runAll(page = 1) {
+    currentPage = page;
+    showLoading(true);
+    try {
+        const filterResult = await fetchFilter(page);
+        lastResult = filterResult;
+
+        renderTable(filterResult.data, filterResult.columns);
+        renderPagination(filterResult.totalCount, filterResult.page, filterResult.pageSize);
+        updateFilteredBadge(filterResult.totalCount);
+        refreshMainCharts();
+        loadEntityCards();
+        drawComplianceChart();
+        drawCrossTabChart();
+    } finally {
+        showLoading(false);
+    }
+}
+
+// ── API ────────────────────────────────────────────────────────
+async function fetchFilter(page = 1) {
+    const pageSize = parseInt(document.getElementById('pageSizeSelect')?.value || 50);
+    const resp = await fetch('/Analysis/Filter', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            fileId: FILE_ID, conditions: getConditions(),
+            logicOperator: document.getElementById('logicOperator').value,
+            page, pageSize,
+            sortColumn: currentSort.column, sortAscending: currentSort.asc
+        })
+    });
+    return await resp.json();
+}
+
+async function fetchComparison() {
+    const resp = await fetch('/Analysis/Compare', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            fileId: FILE_ID,
+            xColumn: document.getElementById('xColumn').value,
+            yColumn: document.getElementById('yColumn').value,
+            chartType: document.getElementById('compChartType').value,
+            aggregateFunc: document.getElementById('aggFunc').value,
+            conditions: getConditions(),
+            logicOperator: document.getElementById('logicOperator').value
+        })
+    });
+    return await resp.json();
+}
+
+// ── KPI Cards ──────────────────────────────────────────────────
+function renderKPIs(result) {
+    const s = result.summary || {};
+    const numCols = [...new Set(
+        Object.keys(s).filter(k => k.endsWith('_sum')).map(k => k.replace(/_sum$/,''))
+    )];
+
+    const strip = document.getElementById('kpiStrip');
+    if (!numCols.length) {
+        strip.innerHTML = '<div class="text-muted small p-3">لا توجد أعمدة رقمية لعرض مؤشرات الأداء</div>';
+        return;
+    }
+
+    const icons = ['dollar-sign','hashtag','chart-line','layer-group','calculator','percentage','coins','chart-bar'];
+    const colors = ['blue','green','purple','orange','blue','green','purple','orange'];
+
+    strip.innerHTML = numCols.slice(0, 8).map((col, i) => {
+        const sum   = s[col+'_sum']   || 0;
+        const avg   = s[col+'_avg']   || 0;
+        const min   = s[col+'_min']   || 0;
+        const max   = s[col+'_max']   || 0;
+        const cnt   = s[col+'_count'] || 0;
+        const pct   = max > min ? Math.round(((avg - min) / (max - min)) * 100) : 50;
+        return `
+        <div class="kpi-chip" onclick="highlightColumn('${col}')">
+            <div class="kpi-top">
+                <div class="kpi-icon icon-${colors[i%colors.length]}">
+                    <i class="fas fa-${icons[i%icons.length]}"></i>
+                </div>
+                <span class="kpi-badge" style="background:#dbeafe;color:#1d4ed8">متوسط</span>
+            </div>
+            <div class="kpi-val">${Number(avg).toLocaleString('en-US', {maximumFractionDigits:1})}</div>
+            <div class="kpi-label">${col}</div>
+            <div class="kpi-subrow">
+                <span><i class="fas fa-arrow-down text-danger"></i> ${Number(min).toLocaleString()}</span>
+                <span><i class="fas fa-arrow-up text-success"></i> ${Number(max).toLocaleString()}</span>
+                <span>Σ ${formatBig(sum)}</span>
+            </div>
+            <div class="kpi-bar"><div class="kpi-fill" style="width:${pct}%"></div></div>
+            <i class="fas fa-chart-bar kpi-bg-icon"></i>
+        </div>`;
+    }).join('');
+
+    // Data quality
+    const total = result.totalCount * COL_NAMES.length;
+    const filled = result.data.slice(0,50).reduce((acc, row) =>
+        acc + Object.values(row).filter(v => v && v.trim()).length, 0);
+    const estFilled = total > 0 ? Math.min(100, Math.round((filled / (result.data.length * COL_NAMES.length)) * 100)) : 0;
+    document.getElementById('qualityFill').style.width = estFilled + '%';
+    document.getElementById('qualityPct').textContent = estFilled + '%';
+}
+
+function formatBig(n) {
+    if (Math.abs(n) >= 1e9) return (n/1e9).toFixed(1) + 'B';
+    if (Math.abs(n) >= 1e6) return (n/1e6).toFixed(1) + 'M';
+    if (Math.abs(n) >= 1e3) return (n/1e3).toFixed(1) + 'K';
+    return Number(n).toLocaleString();
+}
+
+// ── Smart Insights ─────────────────────────────────────────────
+function renderInsights(result) {
+    const s = result.summary || {};
+    const ds = result.chartDataSets || [];
+    const total = result.totalCount;
+    const insights = [];
+
+    // Numeric stats
+    const numCols = [...new Set(
+        Object.keys(s).filter(k => k.endsWith('_sum')).map(k => k.replace(/_sum$/,''))
+    )];
+    numCols.forEach(col => {
+        const avg = s[col+'_avg'] || 0;
+        const min = s[col+'_min'] || 0;
+        const max = s[col+'_max'] || 0;
+        const sum = s[col+'_sum'] || 0;
+        const range = max - min;
+        const cv = avg > 0 ? Math.round((range / avg) * 100) : 0;
+        insights.push({
+            type: 'type-stat', icon: 'blue', fa: 'chart-line',
+            title: `${col}`,
+            detail: `المجموع: ${formatBig(sum)} | المتوسط: ${Number(avg).toLocaleString()} | المدى: ${Number(min).toLocaleString()} – ${Number(max).toLocaleString()}`
+        });
+        if (cv > 100) {
+            insights.push({
+                type: 'type-warn', icon: 'amber', fa: 'exclamation-triangle',
+                title: `تشتت عالٍ في "${col}"`,
+                detail: `نسبة التباين ${cv}% — البيانات غير متجانسة`
+            });
+        }
+    });
+
+    // Top category insights
+    ds.filter(d => !d.isDistribution).slice(0, 4).forEach(d => {
+        if (!d.labels?.length) return;
+        const totalVal = d.values.reduce((a,b) => a+b, 0);
+        const topVal  = d.values[0];
+        const topLbl  = d.labels[0];
+        const topPct  = totalVal > 0 ? Math.round(topVal/totalVal*100) : 0;
+        insights.push({
+            type: 'type-top', icon: 'green', fa: 'trophy',
+            title: `أعلى فئة: "${topLbl}"`,
+            detail: `${d.title} — ${Number(topVal).toLocaleString()} (${topPct}% من الإجمالي)`
+        });
+        // bottom
+        const lastLbl = d.labels[d.labels.length-1];
+        const lastVal = d.values[d.values.length-1];
+        if (d.labels.length > 2) {
+            insights.push({
+                type: 'type-dist', icon: 'purple', fa: 'info-circle',
+                title: `أدنى فئة: "${lastLbl}"`,
+                detail: `${d.title} — ${Number(lastVal).toLocaleString()} (${totalVal>0?Math.round(lastVal/totalVal*100):0}%)`
+            });
+        }
+    });
+
+    // Distribution insights
+    ds.filter(d => d.isDistribution).forEach(d => {
+        const max = Math.max(...d.values);
+        const maxIdx = d.values.indexOf(max);
+        insights.push({
+            type: 'type-dist', icon: 'purple', fa: 'bell',
+            title: `توزيع "${d.title.replace('توزيع ','')}"`,
+            detail: `التجمع الأكبر في النطاق: ${d.labels[maxIdx] || ''} (${max.toLocaleString()} سجل)`
+        });
+    });
+
+    // Total rows insight
+    insights.unshift({
+        type: 'type-stat', icon: 'blue', fa: 'database',
+        title: `إجمالي البيانات`,
+        detail: `${total.toLocaleString()} سجل | ${COL_NAMES.length} عمود`
+    });
+
+    const container = document.getElementById('insightsList');
+    document.getElementById('insightCount').textContent = insights.length;
+
+    if (!insights.length) {
+        container.innerHTML = '<div class="text-center text-muted py-3"><small>لا توجد رؤى متاحة</small></div>';
+        return;
+    }
+
+    container.innerHTML = insights.map(ins => `
+        <div class="insight-item ${ins.type}">
+            <div class="insight-icon ${ins.icon}"><i class="fas fa-${ins.fa}"></i></div>
+            <div class="insight-text">
+                <div class="i-title">${ins.title}</div>
+                <div class="i-detail">${ins.detail}</div>
+            </div>
+        </div>`).join('');
+}
+
+// ── Auto Charts (server-computed) ─────────────────────────────
+function renderAutoCharts(result) {
+    chartDataSets = result.chartDataSets || [];
+    const grid = document.getElementById('autoChartsGrid');
+    document.getElementById('chartCount').textContent = chartDataSets.length;
+
+    // Populate primary chart selector
+    const sel = document.getElementById('primaryColSelect');
+    const prev = sel.value;
+    sel.innerHTML = '<option value="">-- اختر مجموعة --</option>' +
+        chartDataSets.map((d,i) => `<option value="${i}">${d.title}</option>`).join('');
+    if (prev) sel.value = prev;
+    if (!sel.value && chartDataSets.length) { sel.value = '0'; }
+    updatePrimaryChart();
+
+    if (!chartDataSets.length) { grid.innerHTML = ''; return; }
+
+    grid.innerHTML = chartDataSets.map(def => `
+        <div class="col-md-6 col-xl-4">
+            <div class="chart-card h-100">
+                <div class="card-header">
+                    <span style="font-size:.82rem;font-weight:700">
+                        <i class="fas fa-${def.isDistribution?'chart-area text-info':'chart-bar text-primary'} me-1"></i>${def.title}
+                    </span>
+                    <div class="btn-group btn-group-sm">
+                        ${['bar','line','pie','doughnut'].map(t =>
+                            `<button class="btn btn-outline-secondary${def.chartType===t?' active':''}" style="font-size:.68rem;padding:2px 5px"
+                                onclick="switchAutoChart('${def.id}','${t}')">${t}</button>`
+                        ).join('')}
+                    </div>
+                </div>
+                <div class="card-body" style="height:230px"><canvas id="${def.id}"></canvas></div>
+            </div>
+        </div>`).join('');
+
+    chartDataSets.forEach(def => drawAutoChart(def, def.chartType));
+}
+
+function updatePrimaryChart() {
+    const idx = parseInt(document.getElementById('primaryColSelect').value);
+    const def = chartDataSets[idx];
+    const empty = document.getElementById('primaryEmpty');
+    const canvas = document.getElementById('primaryChart');
+    if (!def) {
+        if (primaryChart) { primaryChart.destroy(); primaryChart = null; }
+        canvas.style.display = 'none'; empty.classList.remove('d-none'); return;
+    }
+    canvas.style.display = ''; empty.classList.add('d-none');
+    const type = document.getElementById('primaryTypeGroup')
+        .querySelector('.chart-type-btn.active')?.dataset.type || 'bar';
+    drawPrimary(def, type);
+}
+
+function setPrimaryType(btn) {
+    document.querySelectorAll('#primaryTypeGroup .chart-type-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    updatePrimaryChart();
+}
+
+function drawPrimary(def, type) {
+    if (primaryChart) primaryChart.destroy();
+    const ctx = document.getElementById('primaryChart').getContext('2d');
+    const isCircular = ['pie','doughnut'].includes(type);
+    primaryChart = new Chart(ctx, buildChartConfig(def, type, isCircular, true));
+}
+
+function drawAutoChart(def, type) {
+    if (autoCharts[def.id]) autoCharts[def.id].destroy();
+    const ctx = document.getElementById(def.id)?.getContext('2d');
+    if (!ctx) return;
+    const isCircular = ['pie','doughnut'].includes(type);
+    autoCharts[def.id] = new Chart(ctx, buildChartConfig(def, type, isCircular, false));
+    autoCharts[def.id]._def = { ...def, chartType: type };
+}
+
+function switchAutoChart(id, type) {
+    const chart = autoCharts[id];
+    if (!chart || !chart._def) return;
+    drawAutoChart(chart._def, type);
+}
+
+function buildChartConfig(def, type, isCircular, large) {
+    const sz = large ? 11 : 9;
+    const dlConfig = buildDatalabels(type, isCircular, sz - 1);
+    return {
+        type,
+        data: {
+            labels: def.labels,
+            datasets: [{
+                label: def.title,
+                data: def.values,
+                backgroundColor: isCircular ? PALETTE : def.color + 'cc',
+                borderColor: isCircular ? PALETTE : def.color,
+                borderWidth: 1.5,
+                borderRadius: type === 'bar' ? 6 : 0,
+                tension: 0.4,
+                fill: type === 'line' ? 'origin' : false,
+                pointRadius: type === 'line' ? 4 : 0
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+                legend: { display: isCircular, position: 'bottom',
+                    labels: { font: { family: 'Cairo', size: sz }, boxWidth: 10, padding: 8 } },
+                tooltip: { callbacks: {
+                    label: c => ` ${Number(c.raw).toLocaleString('en-US')}`,
+                    title: t => t[0].label
+                }},
+                datalabels: dlConfig
+            },
+            scales: isCircular ? {} : {
+                x: { ticks: { font: { family: 'Cairo', size: sz }, maxRotation: 40, maxTicksLimit: 12 }, grid: { display: false } },
+                y: { beginAtZero: true, ticks: { font: { family: 'Cairo', size: sz } }, grid: { color: '#f0f4f8' } }
+            }
+        },
+        _def: { ...def, chartType: type }
+    };
+}
+
+function buildDatalabels(type, isCircular, sz) {
+    if (isCircular || type === 'polarArea') {
+        return {
+            display: (ctx) => {
+                const data = ctx.dataset.data;
+                const total = data.reduce((a, b) => a + b, 0);
+                return total > 0 && (data[ctx.dataIndex] / total) >= 0.03;
+            },
+            color: 'white',
+            font: { family: 'Cairo', size: sz || 10, weight: 'bold' },
+            formatter: (value, ctx) => {
+                const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                return total > 0 ? Math.round(value / total * 100) + '%' : '';
+            }
+        };
+    }
+    if (type === 'line') {
+        return {
+            display: (ctx) => ctx.dataset.data[ctx.dataIndex] > 0,
+            color: '#374151',
+            font: { family: 'Cairo', size: sz || 9, weight: 'bold' },
+            anchor: 'end', align: 'top', offset: 4,
+            formatter: (v) => Number(v).toLocaleString('en-US')
+        };
+    }
+    // bar (default)
+    return {
+        display: (ctx) => ctx.dataset.data[ctx.dataIndex] > 0,
+        color: '#374151',
+        font: { family: 'Cairo', size: sz || 9, weight: 'bold' },
+        anchor: 'end', align: 'end', offset: 2,
+        formatter: (v) => Number(v).toLocaleString('en-US')
+    };
+}
+
+// ── Comparison Builder ─────────────────────────────────────────
+function pickCol(btn) {
+    const col = btn.dataset.col;
+    if (btn.classList.contains('sel-x')) {
+        btn.classList.remove('sel-x'); selectedX = '';
+        document.getElementById('xColumn').value = '';
+        document.getElementById('xLabel').textContent = 'غير محدد';
+        pickStep = 0;
+        if (lastResult) renderTable(lastResult.data, lastResult.columns);
+        return;
+    }
+    if (btn.classList.contains('sel-y')) {
+        btn.classList.remove('sel-y'); selectedY = '';
+        document.getElementById('yColumn').value = '';
+        document.getElementById('yLabel').textContent = 'غير محدد';
+        if (lastResult) renderTable(lastResult.data, lastResult.columns);
+        return;
+    }
+    if (pickStep === 0) {
+        document.querySelectorAll('.comp-col-btn.sel-x').forEach(p => p.classList.remove('sel-x'));
+        btn.classList.add('sel-x'); selectedX = col;
+        document.getElementById('xColumn').value = col;
+        document.getElementById('xLabel').textContent = col;
+        pickStep = 1;
+        if (lastResult) renderTable(lastResult.data, lastResult.columns);
+    } else {
+        document.querySelectorAll('.comp-col-btn.sel-y').forEach(p => p.classList.remove('sel-y'));
+        btn.classList.add('sel-y'); selectedY = col;
+        document.getElementById('yColumn').value = col;
+        document.getElementById('yLabel').textContent = col;
+        pickStep = 0;
+        if (lastResult) renderTable(lastResult.data, lastResult.columns);
+        runComparison();
+    }
+}
+
+function clearAxes() {
+    document.querySelectorAll('.comp-col-btn').forEach(p => p.classList.remove('sel-x','sel-y'));
+    selectedX = ''; selectedY = '';
+    document.getElementById('xColumn').value = '';
+    document.getElementById('yColumn').value = '';
+    document.getElementById('xLabel').textContent = 'غير محدد';
+    document.getElementById('yLabel').textContent = 'غير محدد';
+    pickStep = 0;
+    if (compChart) { compChart.destroy(); compChart = null; }
+    if (lastResult) renderTable(lastResult.data, lastResult.columns);
+}
+
+function setChartType(btn) {
+    document.querySelectorAll('.card-body .chart-type-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('compChartType').value = btn.dataset.type;
+    if (selectedX && selectedY) runComparison();
+}
+
+async function runComparison() {
+    if (!selectedX || !selectedY) return;
+    showLoading(true);
+    try {
+        const result = await fetchComparison();
+        renderComparisonChart(result);
+    } finally { showLoading(false); }
+}
+
+function renderComparisonChart(result) {
+    if (!result.labels?.length) return;
+    const type = document.getElementById('compChartType').value;
+    if (compChart) compChart.destroy();
+    const isCircular = ['pie','doughnut','polarArea'].includes(type);
+    const ctx = document.getElementById('comparisonChart').getContext('2d');
+    compChart = new Chart(ctx, {
+        type,
+        data: {
+            labels: result.labels,
+            datasets: [{
+                label: result.yColumn,
+                data: result.values,
+                backgroundColor: isCircular ? PALETTE : PALETTE[0] + 'cc',
+                borderColor: isCircular ? PALETTE : PALETTE[0],
+                borderWidth: 2, borderRadius: type === 'bar' ? 7 : 0,
+                fill: type === 'line' ? 'origin' : false, tension: 0.4,
+                pointRadius: type === 'line' ? 5 : 0
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+                legend: { display: isCircular, position: 'bottom',
+                    labels: { font: { family: 'Cairo', size: 11 }, padding: 12 } },
+                tooltip: { callbacks: { label: c => ` ${Number(c.raw).toLocaleString('en-US')}` } },
+                datalabels: buildDatalabels(type, isCircular, 10)
+            },
+            scales: isCircular ? {} : {
+                x: { ticks: { font: { family: 'Cairo' }, maxRotation: 40 }, grid: { display: false } },
+                y: { beginAtZero: true, ticks: { font: { family: 'Cairo' } }, grid: { color: '#f0f4f8' } }
+            }
+        }
+    });
+}
+
+// ── Filter Builder ─────────────────────────────────────────────
+function addFilter() {
+    const container = document.getElementById('filtersContainer');
+    const idx = container.children.length;
+    const div = document.createElement('div');
+    div.className = 'filter-row';
+    div.innerHTML = buildFilterRow(idx);
+    container.appendChild(div);
+    updateConditionsCount();
+}
+
+function buildFilterRow(idx) {
+    const opts = COL_NAMES.map(c => `<option value="${c}">${c}</option>`).join('');
+    return `
+    <div class="row g-2 align-items-center">
+        <div class="col-auto"><span class="badge bg-primary">${idx+1}</span></div>
+        <div class="col"><select class="form-select form-select-sm col-select" onchange="updateOps(this)">
+            <option value="">${t('j.col_placeholder')}</option>${opts}</select></div>
+        <div class="col-auto"><select class="form-select form-select-sm op-select"><option>=</option></select></div>
+        <div class="col"><input type="text" class="form-control form-control-sm val1" placeholder="${t('j.value_ph')}" /></div>
+        <div class="col val2-wrap d-none"><input type="text" class="form-control form-control-sm val2" placeholder="${t('j.to_ph')}" /></div>
+        <div class="col-auto">
+            <button class="btn btn-sm btn-outline-danger" onclick="this.closest('.filter-row').remove();updateConditionsCount()">
+                <i class="fas fa-times"></i></button></div>
+    </div>`;
+}
+
+function updateOps(sel) {
+    const type = COL_TYPES[sel.value] || 'string';
+    const row = sel.closest('.filter-row');
+    const opSel = row.querySelector('.op-select');
+    opSel.innerHTML = (OPERATORS[type] || OPERATORS.string).map(o => `<option value="${o}">${o}</option>`).join('');
+    opSel.onchange = () => row.querySelector('.val2-wrap').classList.toggle('d-none', opSel.value !== 'between');
+}
+
+function toggleLogic() {
+    const btn = document.getElementById('logicBtn');
+    const inp = document.getElementById('logicOperator');
+    if (inp.value === 'AND') { inp.value = 'OR'; btn.textContent = 'OR'; btn.className = 'btn btn-sm logic-badge logic-or'; }
+    else                     { inp.value = 'AND'; btn.textContent = 'AND'; btn.className = 'btn btn-sm logic-badge logic-and'; }
+}
+
+function getConditions() {
+    return Array.from(document.querySelectorAll('.filter-row')).map(row => ({
+        column:   row.querySelector('.col-select').value,
+        operator: row.querySelector('.op-select').value,
+        value:    row.querySelector('.val1').value,
+        value2:   row.querySelector('.val2')?.value || null
+    })).filter(c => c.column);
+}
+
+function updateConditionsCount() {
+    document.getElementById('conditionsCount').textContent = getConditions().length;
+}
+
+function resetAll() {
+    document.getElementById('filtersContainer').innerHTML = '';
+    currentSort = { column: '', asc: true };
+    updateConditionsCount();
+    runAll(1);
+}
+
+function toggleFilterSection() {
+    const section = document.getElementById('filterSection');
+    const chevron = document.getElementById('filterChevron');
+    filterOpen = !filterOpen;
+    section.style.display = filterOpen ? '' : 'none';
+    chevron.style.transform = filterOpen ? '' : 'rotate(-90deg)';
+}
+
+// ── Table ──────────────────────────────────────────────────────
+function renderTable(data, cols) {
+    const thead = document.querySelector('#dataTable thead tr');
+    thead.innerHTML = cols.map(c => {
+        const dotClass = COL_TYPES[c] === 'number' ? 'dot-num' : COL_TYPES[c] === 'date' ? 'dot-date' : 'dot-str';
+        let thStyle = '';
+        if (c === selectedX) thStyle = 'background:#1d4ed8!important;box-shadow:inset 0 -3px 0 #93c5fd;';
+        else if (c === selectedY) thStyle = 'background:#059669!important;box-shadow:inset 0 -3px 0 #6ee7b7;';
+        return `<th onclick="sortBy('${c}')" style="${thStyle}" class="${currentSort.column===c?'text-warning':''}">
+            <span class="col-type-dot ${dotClass}"></span>${c}
+            <i class="fas fa-sort ms-1 text-white-50 small"></i></th>`;
+    }).join('');
+
+    const tbody = document.getElementById('tableBody');
+    document.getElementById('tableRowCount').textContent = data.length;
+
+    if (!data.length) {
+        tbody.innerHTML = `<tr><td colspan="${cols.length}" class="text-center text-muted py-5">
+            <i class="fas fa-search fa-2x d-block mb-2 opacity-25"></i>${t('j.no_results')}</td></tr>`;
+        return;
+    }
+    tbody.innerHTML = data.map(row =>
+        `<tr>${cols.map(c => {
+            let s = '';
+            if (c === selectedX) s = 'background:#eff6ff;color:#1d4ed8;font-weight:600;border-right:3px solid #93c5fd;';
+            if (c === selectedY) s = 'background:#f0fdf4;color:#059669;font-weight:600;border-right:3px solid #6ee7b7;';
+            return `<td style="${s}" title="${row[c]||''}">${row[c]||''}</td>`;
+        }).join('')}</tr>`
+    ).join('');
+}
+
+function filterTable(q) {
+    document.querySelectorAll('#tableBody tr').forEach(tr => {
+        tr.style.display = tr.textContent.toLowerCase().includes(q.toLowerCase()) ? '' : 'none';
+    });
+}
+
+function sortBy(col) {
+    if (currentSort.column === col) currentSort.asc = !currentSort.asc;
+    else { currentSort.column = col; currentSort.asc = true; }
+    runAll(currentPage);
+}
+
+function renderPagination(total, page, pageSize) {
+    const totalPages = Math.ceil(total / pageSize);
+    const s = page > 1 ? ((page-1)*pageSize+1).toLocaleString() : 1;
+    const e = Math.min(page*pageSize, total).toLocaleString();
+    document.getElementById('paginationInfo').textContent = `${t('j.showing')} ${s}–${e} ${t('j.of')} ${total.toLocaleString('en-US')} ${t('j.records')}`;
+    const ul = document.getElementById('pagination');
+    if (totalPages <= 1) { ul.innerHTML = ''; return; }
+    let h = '';
+    if (page > 1) h += `<li class="page-item"><a class="page-link" onclick="runAll(${page-1})">‹</a></li>`;
+    const ps = Math.max(1, page-2), pe = Math.min(totalPages, page+2);
+    for (let i = ps; i <= pe; i++)
+        h += `<li class="page-item ${i===page?'active':''}"><a class="page-link" onclick="runAll(${i})">${i}</a></li>`;
+    if (page < totalPages) h += `<li class="page-item"><a class="page-link" onclick="runAll(${page+1})">›</a></li>`;
+    ul.innerHTML = h;
+}
+
+function updateFilteredBadge(count) {
+    const badge = document.getElementById('filteredBadge');
+    const conds = getConditions();
+    badge.innerHTML = conds.length
+        ? `<i class="fas fa-filter me-1"></i>${count.toLocaleString('en-US')} ${t('j.records')}`
+        : `<i class="fas fa-database me-1"></i>${count.toLocaleString('en-US')} ${t('j.records')}`;
+}
+
+function highlightColumn(col) {
+    document.querySelectorAll('.kpi-chip').forEach(c => c.classList.remove('active'));
+    event.currentTarget.classList.add('active');
+}
+
+// ── Saved Filters ──────────────────────────────────────────────
+function toggleSavePanel() {
+    document.getElementById('saveFilterPanel').classList.toggle('d-none');
+    document.getElementById('filterName')?.focus();
+}
+function toggleSavedPanel() {
+    const p = document.getElementById('savedFiltersPanel');
+    p.classList.toggle('d-none');
+    if (!p.classList.contains('d-none')) loadSavedFilters();
+}
+
+async function doSaveFilter() {
+    const name = document.getElementById('filterName').value.trim();
+    if (!name) { showToast(t('j.enter_name'), 'danger'); return; }
+    const r = await (await fetch('/Analysis/SaveFilter', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileId: FILE_ID, conditions: getConditions(),
+            logicOperator: document.getElementById('logicOperator').value,
+            saveFilterName: name, page: 1, pageSize: 50 })
+    })).json();
+    if (r.success) {
+        document.getElementById('filterName').value = '';
+        document.getElementById('saveFilterPanel').classList.add('d-none');
+        showToast(t('j.filter_saved'), 'success');
+        loadSavedFilters();
+        document.getElementById('savedFiltersPanel').classList.remove('d-none');
+    }
+}
+
+async function loadSavedFilters() {
+    const filters = await (await fetch(`/Analysis/SavedFilters?fileId=${FILE_ID}`)).json();
+    const list = document.getElementById('savedFiltersList');
+    if (!filters.length) { list.innerHTML = `<span style="font-size:.8rem;opacity:.6">${t('j.no_saved')}</span>`; return; }
+    list.innerHTML = filters.map(f => `
+        <div class="d-flex align-items-center justify-content-between mb-1 p-2 rounded"
+             style="background:rgba(255,255,255,0.1)">
+            <span style="font-size:.82rem;font-weight:700;cursor:pointer;color:white"
+                  onclick="applyStoredFilter(${f.id})">
+                <i class="fas fa-filter me-1"></i>${f.name}</span>
+            <div class="d-flex gap-2 align-items-center">
+                <span class="badge ${f.logicOperator==='AND'?'logic-and':'logic-or'}">${f.logicOperator}</span>
+                <button class="btn btn-sm" style="color:white;background:rgba(255,0,0,0.3);border:none;padding:2px 6px"
+                        onclick="deleteStoredFilter(${f.id},this)"><i class="fas fa-times small"></i></button>
+            </div>
+        </div>`).join('');
+}
+
+async function applyStoredFilter(id) {
+    const filters = await (await fetch(`/Analysis/SavedFilters?fileId=${FILE_ID}`)).json();
+    const sf = filters.find(f => f.id === id);
+    if (!sf) return;
+    document.getElementById('filtersContainer').innerHTML = '';
+    document.getElementById('logicOperator').value = sf.logicOperator;
+    const btn = document.getElementById('logicBtn');
+    btn.textContent = sf.logicOperator;
+    btn.className = `btn btn-sm logic-badge logic-${sf.logicOperator.toLowerCase()}`;
+    sf.conditions.forEach(() => addFilter());
+    document.querySelectorAll('.filter-row').forEach((row, i) => {
+        const c = sf.conditions[i]; if (!c) return;
+        const colSel = row.querySelector('.col-select');
+        colSel.value = c.column; updateOps(colSel);
+        row.querySelector('.op-select').value = c.operator;
+        row.querySelector('.val1').value = c.value;
+        if (c.value2 && row.querySelector('.val2')) {
+            row.querySelector('.val2').value = c.value2;
+            row.querySelector('.val2-wrap').classList.remove('d-none');
+        }
+    });
+    updateConditionsCount();
+    runAll(1);
+}
+
+async function deleteStoredFilter(id, btn) {
+    if (!confirm(t('j.delete_confirm'))) return;
+    const r = await (await fetch(`/Analysis/DeleteFilter?id=${id}`, { method: 'DELETE' })).json();
+    if (r.success) { btn.closest('.d-flex').remove(); showToast(t('j.filter_deleted'), 'danger'); }
+}
+
+// ── Export ─────────────────────────────────────────────────────
+async function exportExcel() {
+    const resp = await fetch('/Analysis/ExportExcel', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileId: FILE_ID, conditions: getConditions(),
+            logicOperator: document.getElementById('logicOperator').value,
+            page: 1, pageSize: 999999 })
+    });
+    const blob = await resp.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = 'analysis.xlsx'; a.click();
+    URL.revokeObjectURL(a.href);
+}
+
+// ── Toast ──────────────────────────────────────────────────────
+function showToast(msg, type = 'success') {
+    const colors = { success: '#10b981', danger: '#ef4444', info: '#2563eb' };
+    const t = document.createElement('div');
+    t.style.cssText = `position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);
+        background:${colors[type]||colors.success};color:white;padding:.75rem 1.5rem;
+        border-radius:10px;font-weight:700;z-index:99999;font-family:Cairo,sans-serif;
+        box-shadow:0 4px 20px rgba(0,0,0,0.2);transition:opacity .4s`;
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 400); }, 2500);
+}
+
+function showLoading(show) {
+    document.getElementById('loadingOverlay').style.display = show ? 'flex' : 'none';
+}
+
+// ── Total KPI Cards ────────────────────────────────────────────
+const VALUE_COL = 'Total Contract Value(USD)';
+
+function refreshMainCharts() {
+    if (!lastResult) return;
+    const total = lastResult.totalCount ?? 0;
+    const s     = lastResult.summary   ?? {};
+
+    // KPI 1 — contract count
+    document.getElementById('kpiContractCount').textContent = total.toLocaleString('en-US');
+    document.getElementById('kpiContractSub').textContent =
+        getConditions().length
+            ? `${t('j.filtered_from')} ${Model_TotalRows.toLocaleString('en-US')}`
+            : t('j.total_records');
+
+    // KPI 2 — Total Contract Value(USD) sum
+    const sum = s[VALUE_COL + '_sum'] ?? 0;
+    document.getElementById('kpiContractValue').textContent =
+        sum ? '$ ' + Number(sum).toLocaleString('en-US', {maximumFractionDigits: 2}) : '—';
+}
+
+function formatBigValue(n) {
+    if (Math.abs(n) >= 1e9) return (n/1e9).toFixed(2) + ' مليار';
+    if (Math.abs(n) >= 1e6) return (n/1e6).toFixed(2) + ' مليون';
+    if (Math.abs(n) >= 1e3) return (n/1e3).toFixed(1) + ' ألف';
+    return Number(n).toLocaleString('en-US', {maximumFractionDigits: 2});
+}
+
+// ── Entity Cards ───────────────────────────────────────────────
+const CARD_COLORS = [
+    ['#3b82f6','#1d4ed8'],['#10b981','#047857'],['#f59e0b','#b45309'],
+    ['#ef4444','#b91c1c'],['#8b5cf6','#6d28d9'],['#06b6d4','#0e7490'],
+    ['#ec4899','#be185d'],['#84cc16','#4d7c0f'],['#f97316','#c2410c'],
+    ['#14b8a6','#0f766e'],['#a78bfa','#7c3aed'],['#fb923c','#ea580c']
+];
+
+let activeEntityFilter = null;
+
+async function loadEntityCards() {
+    const col = document.getElementById('entityColSelect')?.value;
+    if (!col) return;
+
+    document.getElementById('entitySectionLabel').textContent = col;
+    document.getElementById('entityCardsRow').innerHTML =
+        `<div class="entity-card"><div class="entity-avatar" style="background:rgba(255,255,255,0.2)">
+         <i class="fas fa-spinner fa-spin"></i></div><div class="entity-name">جاري...</div></div>`;
+
+    const resp = await fetch('/Analysis/EntityCards', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            fileId: FILE_ID, column: col,
+            conditions: getConditions(),
+            logicOperator: document.getElementById('logicOperator').value
+        })
+    });
+    const cards = await resp.json();
+
+    if (!cards.length) {
+        document.getElementById('entityCardsRow').innerHTML =
+            `<div style="color:rgba(255,255,255,.6);font-size:.85rem;padding:.5rem">لا توجد بيانات</div>`;
+        return;
+    }
+
+    document.getElementById('entityTotalBadge').textContent = cards.length;
+    const maxCount = cards[0].count;
+
+    const total = cards.reduce((a, c) => a + c.count, 0);
+    const allCard = `
+    <div class="entity-card ${!activeEntityFilter ? 'active' : ''}"
+         style="background:linear-gradient(135deg,#475569,#1e293b)"
+         onclick="filterByEntity(null,'${col}')">
+        <div class="entity-name"><i class="fas fa-th-large me-1" style="font-size:.72rem"></i>الكل</div>
+        <div class="entity-count"><strong>${total.toLocaleString('en-US')}</strong> سجل</div>
+        <div class="entity-bar"><div class="entity-bar-fill" style="width:100%;background:rgba(255,255,255,0.5)"></div></div>
+    </div>`;
+
+    const cardHtml = cards.map((c, i) => {
+        const [c1, c2] = CARD_COLORS[i % CARD_COLORS.length];
+        const pct = maxCount > 0 ? Math.round(c.count / maxCount * 100) : 0;
+        const isActive = activeEntityFilter === c.name;
+        return `
+        <div class="entity-card ${isActive ? 'active' : ''}"
+             style="background:linear-gradient(135deg,${c1},${c2})"
+             onclick="filterByEntity('${c.name.replace(/'/g,"\\'")}','${col}')">
+            <div class="entity-name" title="${c.name}">${c.name}</div>
+            <div class="entity-count"><strong>${c.count.toLocaleString('en-US')}</strong> · ${c.percentage}%</div>
+            <div class="entity-bar"><div class="entity-bar-fill" style="width:${pct}%;background:rgba(255,255,255,0.6)"></div></div>
+        </div>`;
+    }).join('');
+
+    document.getElementById('entityCardsRow').innerHTML = allCard + cardHtml;
+}
+
+function filterByEntity(value, col) {
+    activeEntityFilter = value;
+    // Update active state visually
+    document.querySelectorAll('.entity-card').forEach(c => c.classList.remove('active'));
+    event.currentTarget.classList.add('active');
+
+    // Clear existing entity filter condition, then add new one
+    const container = document.getElementById('filtersContainer');
+    // Remove old entity filter rows
+    Array.from(container.querySelectorAll('.filter-row')).forEach(row => {
+        const colSel = row.querySelector('.col-select');
+        if (colSel?.value === col) row.remove();
+    });
+
+    if (value) {
+        addFilter();
+        const rows = container.querySelectorAll('.filter-row');
+        const lastRow = rows[rows.length - 1];
+        const colSel = lastRow.querySelector('.col-select');
+        colSel.value = col;
+        updateOps(colSel);
+        lastRow.querySelector('.op-select').value = '=';
+        lastRow.querySelector('.val1').value = value;
+    }
+
+    updateConditionsCount();
+    runAll(1);
+}
+
+// ── Cross-Tab Chart ─────────────────────────────────────────────
+let crossTabChartInst = null;
+let crossTabChartType = 'bar';
+
+function setCrossTabType(btn) {
+    btn.closest('.btn-group').querySelectorAll('.chart-type-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    crossTabChartType = btn.dataset.type;
+    drawCrossTabChart();
+}
+
+async function drawCrossTabChart() {
+    const col1 = document.getElementById('crossCol1')?.value;
+    const col2 = document.getElementById('crossCol2')?.value;
+    if (!col1 || !col2) return;
+
+    const resp = await fetch('/Analysis/CrossTab', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            fileId: FILE_ID, col1, col2,
+            conditions: getConditions(),
+            logicOperator: document.getElementById('logicOperator').value
+        })
+    });
+    const ct = await resp.json();
+
+    if (!ct.categories?.length || !ct.series?.length) return;
+
+    if (crossTabChartInst) crossTabChartInst.destroy();
+    const ctx = document.getElementById('crossTabChart').getContext('2d');
+    const isCircular = ['pie','doughnut','polarArea'].includes(crossTabChartType);
+
+    const datasets = ct.series.map((s, i) => ({
+        label: s.name,
+        data: s.values,
+        backgroundColor: PALETTE[i % PALETTE.length] + (isCircular ? '' : 'cc'),
+        borderColor: PALETTE[i % PALETTE.length],
+        borderWidth: 1.5,
+        borderRadius: crossTabChartType === 'bar' ? 5 : 0,
+        tension: 0.4,
+        fill: false,
+        pointRadius: crossTabChartType === 'line' ? 4 : 0
+    }));
+
+    crossTabChartInst = new Chart(ctx, {
+        type: crossTabChartType,
+        data: { labels: ct.categories, datasets },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'top',
+                    labels: { font: { family: 'Cairo', size: 11 }, boxWidth: 12, padding: 10 }
+                },
+                tooltip: { callbacks: {
+                    label: c => ` ${c.dataset.label}: ${Number(c.raw).toLocaleString('en-US')}`
+                }},
+                datalabels: isCircular ? buildDatalabels(crossTabChartType, true, 9) : {
+                    display: (ctx) => ctx.dataset.data[ctx.dataIndex] > 0,
+                    color: '#1f2937',
+                    backgroundColor: 'rgba(255,255,255,0.8)',
+                    borderRadius: 3,
+                    padding: { top: 1, bottom: 1, left: 3, right: 3 },
+                    font: { family: 'Cairo', size: 8, weight: 'bold' },
+                    anchor: 'end', align: 'end', offset: 1,
+                    clamp: true,
+                    formatter: (v) => Number(v).toLocaleString('en-US')
+                }
+            },
+            scales: isCircular ? {} : {
+                x: {
+                    stacked: false,
+                    ticks: { font: { family: 'Cairo', size: 10 }, maxRotation: 40, maxTicksLimit: 15 },
+                    grid: { display: false }
+                },
+                y: {
+                    beginAtZero: true,
+                    ticks: { font: { family: 'Cairo', size: 10 } },
+                    grid: { color: '#f0f4f8' }
+                }
+            }
+        }
+    });
+}
+
+// ── Compliance Chart ─────────────────────────────────────────────
+function setComplianceType(btn) {
+    btn.closest('.btn-group').querySelectorAll('.chart-type-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    complianceChartType = btn.dataset.type;
+    drawComplianceChart();
+}
+
+async function drawComplianceChart() {
+    const col = document.getElementById('complianceCol')?.value;
+    if (!col) return;
+
+    const resp = await fetch('/Analysis/EntityCards', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            fileId: FILE_ID, column: col,
+            conditions: getConditions(),
+            logicOperator: document.getElementById('logicOperator').value
+        })
+    });
+    const cards = await resp.json();
+
+    const legendEl = document.getElementById('complianceLegend');
+    if (!cards.length) {
+        legendEl.innerHTML = '<div class="text-muted small p-2">لا توجد بيانات</div>';
+        return;
+    }
+
+    const labels = cards.map(c => c.name);
+    const values = cards.map(c => c.count);
+    const total  = values.reduce((a, b) => a + b, 0);
+
+    if (complianceChartInst) complianceChartInst.destroy();
+    const ctx = document.getElementById('complianceChart').getContext('2d');
+    const isCircular = ['pie','doughnut','polarArea'].includes(complianceChartType);
+
+    complianceChartInst = new Chart(ctx, {
+        type: complianceChartType,
+        data: {
+            labels,
+            datasets: [{
+                label: col,
+                data: values,
+                backgroundColor: isCircular ? PALETTE : PALETTE.map(p => p + 'cc'),
+                borderColor: isCircular ? '#fff' : PALETTE,
+                borderWidth: isCircular ? 2 : 1.5,
+                borderRadius: complianceChartType === 'bar' ? 6 : 0,
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: { callbacks: {
+                    label: c => ` ${Number(c.raw).toLocaleString('en-US')} (${total > 0 ? Math.round(c.raw / total * 100) : 0}%)`
+                }},
+                datalabels: isCircular ? {
+                    display: (ctx) => {
+                        const d = ctx.dataset.data;
+                        const t = d.reduce((a,b)=>a+b,0);
+                        return t > 0 && (d[ctx.dataIndex]/t) >= 0.03;
+                    },
+                    color: 'white',
+                    textAlign: 'center',
+                    font: { family: 'Cairo', size: 10, weight: 'bold' },
+                    formatter: (value) => {
+                        const pct = total > 0 ? Math.round(value/total*100) : 0;
+                        return `${Number(value).toLocaleString('en-US')}\n${pct}%`;
+                    }
+                } : {
+                    display: (ctx) => ctx.dataset.data[ctx.dataIndex] > 0,
+                    color: '#374151',
+                    font: { family: 'Cairo', size: 10, weight: 'bold' },
+                    anchor: 'end', align: 'end', offset: 2,
+                    formatter: (v) => Number(v).toLocaleString('en-US')
+                }
+            },
+            scales: isCircular ? {} : {
+                x: { ticks: { font: { family: 'Cairo', size: 10 }, maxRotation: 40 }, grid: { display: false } },
+                y: { beginAtZero: true, ticks: { font: { family: 'Cairo', size: 10 } }, grid: { color: '#f0f4f8' } }
+            }
+        }
+    });
+
+    legendEl.innerHTML = cards.map((c, i) => {
+        const pct   = total > 0 ? Math.round(c.count / total * 100) : 0;
+        const color = PALETTE[i % PALETTE.length];
+        return `
+        <div class="d-flex align-items-center gap-2 mb-2">
+            <div style="width:13px;height:13px;border-radius:3px;background:${color};flex-shrink:0"></div>
+            <div class="flex-grow-1">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span style="font-size:.82rem;font-weight:600">${c.name}</span>
+                    <span style="font-size:.78rem;color:#6b7280">${c.count.toLocaleString()} · ${pct}%</span>
+                </div>
+                <div style="height:4px;background:#f1f5f9;border-radius:2px;margin-top:3px">
+                    <div style="height:4px;background:${color};border-radius:2px;width:${pct}%;transition:width .4s"></div>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+// ── Entity Details Modal ────────────────────────────────────────
+async function showEntityDetails(name, col, c1, c2) {
+    const modal = new bootstrap.Modal(document.getElementById('entityDetailsModal'));
+
+    // Set avatar + title
+    const initials = name.split(/\s+/).map(w => w[0] || '').join('').slice(0, 3).toUpperCase() || '?';
+    const avatar = document.getElementById('entityModalAvatar');
+    avatar.textContent = initials;
+    avatar.style.background = `linear-gradient(135deg,${c1 || '#2563eb'},${c2 || '#1d4ed8'})`;
+    document.getElementById('entityModalTitle').textContent = name;
+    document.getElementById('entityModalCount').textContent = t('j.loading');
+    document.getElementById('entityModalBody').innerHTML =
+        '<div class="text-center py-5"><i class="fas fa-spinner fa-spin fa-2x text-primary"></i></div>';
+
+    modal.show();
+
+    // Fetch all records for this entity
+    const resp = await fetch('/Analysis/Filter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            fileId: FILE_ID,
+            conditions: [{ column: col, operator: '=', value: name }],
+            logicOperator: 'AND',
+            page: 1,
+            pageSize: 2000
+        })
+    });
+    const result = await resp.json();
+    const cols = result.columns || COL_NAMES;
+    const data = result.data || [];
+
+    document.getElementById('entityModalCount').textContent =
+        `${result.totalCount.toLocaleString('en-US')} سجل`;
+
+    if (!data.length) {
+        document.getElementById('entityModalBody').innerHTML =
+            '<div class="text-center text-muted py-5">لا توجد بيانات</div>';
+        return;
+    }
+
+    document.getElementById('entityModalBody').innerHTML = `
+    <div class="table-responsive" style="max-height:65vh">
+        <table class="table table-sm table-hover mb-0" style="font-size:.76rem">
+            <thead style="position:sticky;top:0;background:linear-gradient(135deg,#1e3a5f,#0f1e3c);color:white;z-index:2">
+                <tr>${cols.map(c => `<th style="white-space:nowrap;padding:8px 10px;font-weight:600">${c}</th>`).join('')}</tr>
+            </thead>
+            <tbody>
+                ${data.map((row, i) => `
+                <tr style="background:${i % 2 === 0 ? '#fff' : '#f8fafc'}">
+                    ${cols.map(c => `<td style="white-space:nowrap;padding:6px 10px;max-width:220px;overflow:hidden;text-overflow:ellipsis" title="${row[c] || ''}">${row[c] || '—'}</td>`).join('')}
+                </tr>`).join('')}
+            </tbody>
+        </table>
+    </div>`;
+
+    // Wire filter button
+    document.getElementById('entityModalFilterBtn').onclick = () => {
+        filterByEntity(name, col);
+        modal.hide();
+    };
+}
+
+// ── Init ───────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    loadEntityCards();
+    runAll(1);
+    refreshMainCharts();
+    drawComplianceChart();
+    drawCrossTabChart();
+});
+
+// Re-render dynamic content when language changes
+document.addEventListener('langChanged', () => {
+    if (lastResult) {
+        renderTable(lastResult.data, lastResult.columns);
+        renderPagination(lastResult.totalCount, lastResult.page, lastResult.pageSize);
+        updateFilteredBadge(lastResult.totalCount);
+        refreshMainCharts();
+    }
+});
+
+// ── Export compliance chart ──
+function doExportCompliance() {
+    const canvas = document.getElementById('complianceChart');
+    if (!canvas || !canvas.width || !canvas.height) {
+        showToast('المخطط غير جاهز بعد، انتظر لحظة', 'danger'); return;
+    }
+    try {
+        const exp = document.createElement('canvas');
+        exp.width  = canvas.width;
+        exp.height = canvas.height;
+        const ctx  = exp.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, exp.width, exp.height);
+        ctx.drawImage(canvas, 0, 0);
+        const link = document.createElement('a');
+        link.download = 'compliance-' + new Date().toISOString().slice(0,10) + '.png';
+        link.href = exp.toDataURL('image/png', 1.0);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        showToast('✓ تم تصدير المخطط', 'success');
+    } catch(e) { showToast('خطأ في التصدير: ' + e.message, 'danger'); }
+}
+
+// ── Export cross-tab chart ──
+function doExportCrossTab() {
+    const canvas = document.getElementById('crossTabChart');
+    if (!canvas || !canvas.width || !canvas.height) {
+        showToast('المخطط غير جاهز بعد، انتظر لحظة', 'danger'); return;
+    }
+    try {
+        const exp = document.createElement('canvas');
+        exp.width  = canvas.width;
+        exp.height = canvas.height;
+        const ctx  = exp.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, exp.width, exp.height);
+        ctx.drawImage(canvas, 0, 0);
+        const link = document.createElement('a');
+        link.download = 'cross-tab-' + new Date().toISOString().slice(0,10) + '.png';
+        link.href = exp.toDataURL('image/png', 1.0);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        showToast('✓ تم تصدير المخطط', 'success');
+    } catch(e) { showToast('خطأ في التصدير: ' + e.message, 'danger'); }
+}
+</script>
+}
