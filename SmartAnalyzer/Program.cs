@@ -27,7 +27,10 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 {
     if (databaseUrl != null)
     {
-        options.UseNpgsql(databaseUrl);
+        var uri = new Uri(databaseUrl);
+        var userInfo = uri.UserInfo.Split(':', 2);
+        var connStr = $"Host={uri.Host};Port={uri.Port};Database={uri.AbsolutePath.TrimStart('/')};Username={userInfo[0]};Password={Uri.UnescapeDataString(userInfo[1])};SSL Mode=Require;Trust Server Certificate=true";
+        options.UseNpgsql(connStr);
     }
     else
     {
