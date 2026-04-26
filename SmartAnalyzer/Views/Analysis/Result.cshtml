@@ -424,6 +424,11 @@ const OPERATORS = {
 const PALETTE = ['#2563eb','#10b981','#f59e0b','#ef4444','#7c3aed',
                  '#06b6d4','#ec4899','#84cc16','#f97316','#14b8a6','#8b5cf6','#e11d48'];
 
+function locale() {
+    return (typeof currentLang !== 'undefined' && currentLang === 'ar') ? 'ar-SA' : 'en-US';
+}
+function fmtN(n, opts) { return Number(n).toLocaleString(locale(), opts); }
+
 // ── State ──────────────────────────────────────────────────────
 let currentPage  = 1;
 let currentSort  = { column: '', asc: true };
@@ -541,10 +546,11 @@ function renderKPIs(result) {
 }
 
 function formatBig(n) {
-    if (Math.abs(n) >= 1e9) return (n/1e9).toFixed(1) + 'B';
-    if (Math.abs(n) >= 1e6) return (n/1e6).toFixed(1) + 'M';
-    if (Math.abs(n) >= 1e3) return (n/1e3).toFixed(1) + 'K';
-    return Number(n).toLocaleString();
+    const ar = locale() === 'ar-SA';
+    if (Math.abs(n) >= 1e9) return (n/1e9).toFixed(1) + (ar ? ' مليار' : 'B');
+    if (Math.abs(n) >= 1e6) return (n/1e6).toFixed(1) + (ar ? ' مليون' : 'M');
+    if (Math.abs(n) >= 1e3) return (n/1e3).toFixed(1) + (ar ? ' ألف' : 'K');
+    return Number(n).toLocaleString(locale());
 }
 
 // ── Smart Insights ─────────────────────────────────────────────
@@ -745,7 +751,7 @@ function buildChartConfig(def, type, isCircular, large) {
                 legend: { display: isCircular, position: 'bottom',
                     labels: { font: { family: 'Cairo', size: sz }, boxWidth: 10, padding: 8 } },
                 tooltip: { callbacks: {
-                    label: c => ` ${Number(c.raw).toLocaleString('en-US')}`,
+                    label: c => ` ${Number(c.raw).toLocaleString(locale())}`,
                     title: t => t[0].label
                 }},
                 datalabels: dlConfig
@@ -781,7 +787,7 @@ function buildDatalabels(type, isCircular, sz) {
             color: '#374151',
             font: { family: 'Cairo', size: sz || 9, weight: 'bold' },
             anchor: 'end', align: 'top', offset: 4,
-            formatter: (v) => Number(v).toLocaleString('en-US')
+            formatter: (v) => Number(v).toLocaleString(locale())
         };
     }
     // bar (default)
@@ -790,7 +796,7 @@ function buildDatalabels(type, isCircular, sz) {
         color: '#374151',
         font: { family: 'Cairo', size: sz || 9, weight: 'bold' },
         anchor: 'end', align: 'end', offset: 2,
-        formatter: (v) => Number(v).toLocaleString('en-US')
+        formatter: (v) => Number(v).toLocaleString(locale())
     };
 }
 
@@ -883,7 +889,7 @@ function renderComparisonChart(result) {
             plugins: {
                 legend: { display: isCircular, position: 'bottom',
                     labels: { font: { family: 'Cairo', size: 11 }, padding: 12 } },
-                tooltip: { callbacks: { label: c => ` ${Number(c.raw).toLocaleString('en-US')}` } },
+                tooltip: { callbacks: { label: c => ` ${Number(c.raw).toLocaleString(locale())}` } },
                 datalabels: buildDatalabels(type, isCircular, 10)
             },
             scales: isCircular ? {} : {
@@ -1011,7 +1017,7 @@ function renderPagination(total, page, pageSize) {
     const totalPages = Math.ceil(total / pageSize);
     const s = page > 1 ? ((page-1)*pageSize+1).toLocaleString() : 1;
     const e = Math.min(page*pageSize, total).toLocaleString();
-    document.getElementById('paginationInfo').textContent = `${t('j.showing')} ${s}–${e} ${t('j.of')} ${total.toLocaleString('en-US')} ${t('j.records')}`;
+    document.getElementById('paginationInfo').textContent = `${t('j.showing')} ${s}–${e} ${t('j.of')} ${total.toLocaleString(locale())} ${t('j.records')}`;
     const ul = document.getElementById('pagination');
     if (totalPages <= 1) { ul.innerHTML = ''; return; }
     let h = '';
@@ -1027,8 +1033,8 @@ function updateFilteredBadge(count) {
     const badge = document.getElementById('filteredBadge');
     const conds = getConditions();
     badge.innerHTML = conds.length
-        ? `<i class="fas fa-filter me-1"></i>${count.toLocaleString('en-US')} ${t('j.records')}`
-        : `<i class="fas fa-database me-1"></i>${count.toLocaleString('en-US')} ${t('j.records')}`;
+        ? `<i class="fas fa-filter me-1"></i>${count.toLocaleString(locale())} ${t('j.records')}`
+        : `<i class="fas fa-database me-1"></i>${count.toLocaleString(locale())} ${t('j.records')}`;
 }
 
 function highlightColumn(col) {
@@ -1154,10 +1160,10 @@ function refreshMainCharts() {
     const s     = lastResult.summary   ?? {};
 
     // KPI 1 — contract count
-    document.getElementById('kpiContractCount').textContent = total.toLocaleString('en-US');
+    document.getElementById('kpiContractCount').textContent = total.toLocaleString(locale());
     document.getElementById('kpiContractSub').textContent =
         getConditions().length
-            ? `${t('j.filtered_from')} ${Model_TotalRows.toLocaleString('en-US')}`
+            ? `${t('j.filtered_from')} ${Model_TotalRows.toLocaleString(locale())}`
             : t('j.total_records');
 
     // KPI 2 — Total Contract Value(USD) sum
@@ -1167,10 +1173,11 @@ function refreshMainCharts() {
 }
 
 function formatBigValue(n) {
-    if (Math.abs(n) >= 1e9) return (n/1e9).toFixed(2) + ' مليار';
-    if (Math.abs(n) >= 1e6) return (n/1e6).toFixed(2) + ' مليون';
-    if (Math.abs(n) >= 1e3) return (n/1e3).toFixed(1) + ' ألف';
-    return Number(n).toLocaleString('en-US', {maximumFractionDigits: 2});
+    const ar = locale() === 'ar-SA';
+    if (Math.abs(n) >= 1e9) return (n/1e9).toFixed(2) + (ar ? ' مليار' : 'B');
+    if (Math.abs(n) >= 1e6) return (n/1e6).toFixed(2) + (ar ? ' مليون' : 'M');
+    if (Math.abs(n) >= 1e3) return (n/1e3).toFixed(1) + (ar ? ' ألف' : 'K');
+    return Number(n).toLocaleString(locale(), {maximumFractionDigits: 2});
 }
 
 // ── Entity Cards ───────────────────────────────────────────────
@@ -1217,7 +1224,7 @@ async function loadEntityCards() {
          style="background:linear-gradient(135deg,#475569,#1e293b)"
          onclick="filterByEntity(null,'${col}')">
         <div class="entity-name"><i class="fas fa-th-large me-1" style="font-size:.72rem"></i>الكل</div>
-        <div class="entity-count"><strong>${total.toLocaleString('en-US')}</strong> سجل</div>
+        <div class="entity-count"><strong>${total.toLocaleString(locale())}</strong> سجل</div>
         <div class="entity-bar"><div class="entity-bar-fill" style="width:100%;background:rgba(255,255,255,0.5)"></div></div>
     </div>`;
 
@@ -1230,7 +1237,7 @@ async function loadEntityCards() {
              style="background:linear-gradient(135deg,${c1},${c2})"
              onclick="filterByEntity('${c.name.replace(/'/g,"\\'")}','${col}')">
             <div class="entity-name" title="${c.name}">${c.name}</div>
-            <div class="entity-count"><strong>${c.count.toLocaleString('en-US')}</strong> · ${c.percentage}%</div>
+            <div class="entity-count"><strong>${c.count.toLocaleString(locale())}</strong> · ${c.percentage}%</div>
             <div class="entity-bar"><div class="entity-bar-fill" style="width:${pct}%;background:rgba(255,255,255,0.6)"></div></div>
         </div>`;
     }).join('');
@@ -1322,7 +1329,7 @@ async function drawCrossTabChart() {
                     labels: { font: { family: 'Cairo', size: 11 }, boxWidth: 12, padding: 10 }
                 },
                 tooltip: { callbacks: {
-                    label: c => ` ${c.dataset.label}: ${Number(c.raw).toLocaleString('en-US')}`
+                    label: c => ` ${c.dataset.label}: ${Number(c.raw).toLocaleString(locale())}`
                 }},
                 datalabels: isCircular ? buildDatalabels(crossTabChartType, true, 9) : {
                     display: (ctx) => ctx.dataset.data[ctx.dataIndex] > 0,
@@ -1333,7 +1340,7 @@ async function drawCrossTabChart() {
                     font: { family: 'Cairo', size: 8, weight: 'bold' },
                     anchor: 'end', align: 'end', offset: 1,
                     clamp: true,
-                    formatter: (v) => Number(v).toLocaleString('en-US')
+                    formatter: (v) => Number(v).toLocaleString(locale())
                 }
             },
             scales: isCircular ? {} : {
@@ -1407,7 +1414,7 @@ async function drawComplianceChart() {
             plugins: {
                 legend: { display: false },
                 tooltip: { callbacks: {
-                    label: c => ` ${Number(c.raw).toLocaleString('en-US')} (${total > 0 ? Math.round(c.raw / total * 100) : 0}%)`
+                    label: c => ` ${Number(c.raw).toLocaleString(locale())} (${total > 0 ? Math.round(c.raw / total * 100) : 0}%)`
                 }},
                 datalabels: isCircular ? {
                     display: (ctx) => {
@@ -1420,14 +1427,14 @@ async function drawComplianceChart() {
                     font: { family: 'Cairo', size: 10, weight: 'bold' },
                     formatter: (value) => {
                         const pct = total > 0 ? Math.round(value/total*100) : 0;
-                        return `${Number(value).toLocaleString('en-US')}\n${pct}%`;
+                        return `${Number(value).toLocaleString(locale())}\n${pct}%`;
                     }
                 } : {
                     display: (ctx) => ctx.dataset.data[ctx.dataIndex] > 0,
                     color: '#374151',
                     font: { family: 'Cairo', size: 10, weight: 'bold' },
                     anchor: 'end', align: 'end', offset: 2,
-                    formatter: (v) => Number(v).toLocaleString('en-US')
+                    formatter: (v) => Number(v).toLocaleString(locale())
                 }
             },
             scales: isCircular ? {} : {
@@ -1446,7 +1453,7 @@ async function drawComplianceChart() {
             <div style="flex:1;min-width:0">
                 <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:5px">
                     <span style="font-size:.82rem;font-weight:600;color:#111827;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.name}</span>
-                    <span style="font-size:.78rem;color:#6b7280;white-space:nowrap;flex-shrink:0">${c.count.toLocaleString('ar-SA')} · ${pct}%</span>
+                    <span style="font-size:.78rem;color:#6b7280;white-space:nowrap;flex-shrink:0">${c.count.toLocaleString(locale())} · ${pct}%</span>
                 </div>
                 <div style="height:3px;background:#f1f5f9;border-radius:2px">
                     <div style="height:3px;background:${color};border-radius:2px;width:${pct}%;transition:width .6s ease"></div>
@@ -1489,7 +1496,7 @@ async function showEntityDetails(name, col, c1, c2) {
     const data = result.data || [];
 
     document.getElementById('entityModalCount').textContent =
-        `${result.totalCount.toLocaleString('en-US')} سجل`;
+        `${result.totalCount.toLocaleString(locale())} سجل`;
 
     if (!data.length) {
         document.getElementById('entityModalBody').innerHTML =
@@ -1536,6 +1543,8 @@ document.addEventListener('langChanged', () => {
         updateFilteredBadge(lastResult.totalCount);
         refreshMainCharts();
     }
+    drawComplianceChart();
+    drawCrossTabChart();
 });
 
 // ── Export compliance chart ──
