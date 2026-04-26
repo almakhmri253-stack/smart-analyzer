@@ -71,7 +71,7 @@
                         </a>
                     </li>
                     <li>
-                        <a class="dropdown-item" href="#" onclick="doExportCompliance();setTimeout(doExportCrossTab,400);return false">
+                        <a class="dropdown-item" href="#" onclick="doExportCompliance().then(()=>setTimeout(doExportCrossTab,400));return false">
                             <i class="fas fa-images me-2" style="color:#f59e0b;width:16px"></i>
                             كل المخططات PNG
                         </a>
@@ -1548,22 +1548,14 @@ document.addEventListener('langChanged', () => {
 });
 
 // ── Export compliance chart ──
-function doExportCompliance() {
-    const canvas = document.getElementById('complianceChart');
-    if (!canvas || !canvas.width || !canvas.height) {
-        showToast('المخطط غير جاهز بعد، انتظر لحظة', 'danger'); return;
-    }
+async function doExportCompliance() {
+    const card = document.getElementById('complianceCard');
+    if (!card) { showToast('المخطط غير جاهز بعد', 'danger'); return; }
     try {
-        const exp = document.createElement('canvas');
-        exp.width  = canvas.width;
-        exp.height = canvas.height;
-        const ctx  = exp.getContext('2d');
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, exp.width, exp.height);
-        ctx.drawImage(canvas, 0, 0);
+        const cvs = await html2canvas(card, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
         const link = document.createElement('a');
         link.download = 'compliance-' + new Date().toISOString().slice(0,10) + '.png';
-        link.href = exp.toDataURL('image/png', 1.0);
+        link.href = cvs.toDataURL('image/png', 1.0);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -1628,22 +1620,14 @@ async function exportAll() {
 }
 
 // ── Export cross-tab chart ──
-function doExportCrossTab() {
-    const canvas = document.getElementById('crossTabChart');
-    if (!canvas || !canvas.width || !canvas.height) {
-        showToast('المخطط غير جاهز بعد، انتظر لحظة', 'danger'); return;
-    }
+async function doExportCrossTab() {
+    const card = document.getElementById('crossTabCard');
+    if (!card) { showToast('المخطط غير جاهز بعد', 'danger'); return; }
     try {
-        const exp = document.createElement('canvas');
-        exp.width  = canvas.width;
-        exp.height = canvas.height;
-        const ctx  = exp.getContext('2d');
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, exp.width, exp.height);
-        ctx.drawImage(canvas, 0, 0);
+        const cvs = await html2canvas(card, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
         const link = document.createElement('a');
         link.download = 'cross-tab-' + new Date().toISOString().slice(0,10) + '.png';
-        link.href = exp.toDataURL('image/png', 1.0);
+        link.href = cvs.toDataURL('image/png', 1.0);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
