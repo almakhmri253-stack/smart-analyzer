@@ -758,7 +758,7 @@ function buildChartConfig(def, type, isCircular, large) {
             },
             scales: isCircular ? {} : {
                 x: { ticks: { font: { family: 'Cairo', size: sz }, maxRotation: 40, maxTicksLimit: 12 }, grid: { display: false } },
-                y: { beginAtZero: true, ticks: { font: { family: 'Cairo', size: sz } }, grid: { color: '#f0f4f8' } }
+                y: { beginAtZero: true, ticks: { font: { family: 'Cairo', size: sz }, callback: v => Number(v).toLocaleString(locale()) }, grid: { color: '#f0f4f8' } }
             }
         },
         _def: { ...def, chartType: type }
@@ -894,7 +894,7 @@ function renderComparisonChart(result) {
             },
             scales: isCircular ? {} : {
                 x: { ticks: { font: { family: 'Cairo' }, maxRotation: 40 }, grid: { display: false } },
-                y: { beginAtZero: true, ticks: { font: { family: 'Cairo' } }, grid: { color: '#f0f4f8' } }
+                y: { beginAtZero: true, ticks: { font: { family: 'Cairo' }, callback: v => Number(v).toLocaleString(locale()) }, grid: { color: '#f0f4f8' } }
             }
         }
     });
@@ -1351,7 +1351,7 @@ async function drawCrossTabChart() {
                 },
                 y: {
                     beginAtZero: true,
-                    ticks: { font: { family: 'Cairo', size: 10 } },
+                    ticks: { font: { family: 'Cairo', size: 10 }, callback: v => Number(v).toLocaleString(locale()) },
                     grid: { color: '#f0f4f8' }
                 }
             }
@@ -1439,7 +1439,7 @@ async function drawComplianceChart() {
             },
             scales: isCircular ? {} : {
                 x: { ticks: { font: { family: 'Cairo', size: 10 }, maxRotation: 40 }, grid: { display: false } },
-                y: { beginAtZero: true, ticks: { font: { family: 'Cairo', size: 10 } }, grid: { color: '#f0f4f8' } }
+                y: { beginAtZero: true, ticks: { font: { family: 'Cairo', size: 10 }, callback: v => Number(v).toLocaleString(locale()) }, grid: { color: '#f0f4f8' } }
             }
         }
     });
