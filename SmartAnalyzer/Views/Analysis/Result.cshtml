@@ -184,8 +184,8 @@
 <!-- ══════════════════ COMPLIANCE CHART ══════════════════ -->
 <div class="chart-card mb-4" id="complianceCard">
     <div class="card-header">
-        <span><i class="fas fa-shield-alt me-2 text-success"></i>Compliance of Omanization</span>
-        <div class="d-flex gap-2 align-items-center">
+        <span><i class="fas fa-shield-alt me-2 text-success"></i><span data-i18n="a.compliance_title">Compliance of Omanization</span></span>
+        <div class="d-flex gap-2 align-items-center flex-wrap">
             <select id="complianceCol" class="form-select form-select-sm" style="width:220px;font-size:.8rem" onchange="drawComplianceChart()">
                 @foreach (var col in allCols.Where(c => c.DataType == "string"))
                 {
@@ -1414,7 +1414,7 @@ async function drawComplianceChart() {
             plugins: {
                 legend: { display: false },
                 tooltip: { callbacks: {
-                    label: c => ` ${Number(c.raw).toLocaleString(locale())} (${total > 0 ? Math.round(c.raw / total * 100) : 0}%)`
+                    label: c => ` ${Number(c.raw).toLocaleString(locale())} (${Number(total > 0 ? Math.round(c.raw / total * 100) : 0).toLocaleString(locale())}%)`
                 }},
                 datalabels: isCircular ? {
                     display: (ctx) => {
@@ -1427,7 +1427,7 @@ async function drawComplianceChart() {
                     font: { family: 'Cairo', size: 10, weight: 'bold' },
                     formatter: (value) => {
                         const pct = total > 0 ? Math.round(value/total*100) : 0;
-                        return `${Number(value).toLocaleString(locale())}\n${pct}%`;
+                        return `${Number(value).toLocaleString(locale())}\n${Number(pct).toLocaleString(locale())}%`;
                     }
                 } : {
                     display: (ctx) => ctx.dataset.data[ctx.dataIndex] > 0,
@@ -1453,7 +1453,7 @@ async function drawComplianceChart() {
             <div style="flex:1;min-width:0">
                 <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:5px">
                     <span style="font-size:.82rem;font-weight:600;color:#111827;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.name}</span>
-                    <span style="font-size:.78rem;color:#6b7280;white-space:nowrap;flex-shrink:0">${c.count.toLocaleString(locale())} · ${pct}%</span>
+                    <span style="font-size:.78rem;color:#6b7280;white-space:nowrap;flex-shrink:0">${c.count.toLocaleString(locale())} · ${Number(pct).toLocaleString(locale())}%</span>
                 </div>
                 <div style="height:3px;background:#f1f5f9;border-radius:2px">
                     <div style="height:3px;background:${color};border-radius:2px;width:${pct}%;transition:width .6s ease"></div>
@@ -1547,24 +1547,34 @@ document.addEventListener('langChanged', () => {
     drawCrossTabChart();
 });
 
+// ── Close all open dropdowns then capture ──
+function closeDropdownsThen(fn) {
+    document.querySelectorAll('.dropdown-menu.show').forEach(m => {
+        const toggle = m.previousElementSibling;
+        if (toggle) bootstrap.Dropdown.getInstance(toggle)?.hide();
+    });
+    setTimeout(fn, 200);
+}
+
 // ── Export compliance chart ──
-async function doExportCompliance() {
-    const card = document.getElementById('complianceCard');
-    if (!card) { showToast('المخطط غير جاهز بعد', 'danger'); return; }
-    try {
-        const cvs = await html2canvas(card, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
-        const link = document.createElement('a');
-        link.download = 'compliance-' + new Date().toISOString().slice(0,10) + '.png';
-        link.href = cvs.toDataURL('image/png', 1.0);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        showToast('✓ تم تصدير المخطط', 'success');
-    } catch(e) { showToast('خطأ في التصدير: ' + e.message, 'danger'); }
+function doExportCompliance() {
+    closeDropdownsThen(async () => {
+        const card = document.getElementById('complianceCard');
+        if (!card) { showToast('المخطط غير جاهز بعد', 'danger'); return; }
+        try {
+            const cvs = await html2canvas(card, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+            const link = document.createElement('a');
+            link.download = 'compliance-' + new Date().toISOString().slice(0,10) + '.png';
+            link.href = cvs.toDataURL('image/png', 1.0);
+            document.body.appendChild(link); link.click(); document.body.removeChild(link);
+            showToast('✓ تم تصدير المخطط', 'success');
+        } catch(e) { showToast('خطأ في التصدير: ' + e.message, 'danger'); }
+    });
 }
 
 // ── PDF Export ─────────────────────────────────────────────────
-async function exportCardPDF(cardId, filename) {
+function exportCardPDF(cardId, filename) {
+    closeDropdownsThen(async () => {
     const card = document.getElementById(cardId);
     if (!card) { showToast('العنصر غير موجود', 'danger'); return; }
     showToast('جاري إنشاء PDF...', 'info');
@@ -1578,6 +1588,7 @@ async function exportCardPDF(cardId, filename) {
         pdf.save(filename + '-' + new Date().toISOString().slice(0, 10) + '.pdf');
         showToast('✓ تم تصدير PDF', 'success');
     } catch(e) { showToast('خطأ: ' + e.message, 'danger'); }
+    });
 }
 
 async function exportPDF() {
@@ -1620,19 +1631,19 @@ async function exportAll() {
 }
 
 // ── Export cross-tab chart ──
-async function doExportCrossTab() {
-    const card = document.getElementById('crossTabCard');
-    if (!card) { showToast('المخطط غير جاهز بعد', 'danger'); return; }
-    try {
-        const cvs = await html2canvas(card, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
-        const link = document.createElement('a');
-        link.download = 'cross-tab-' + new Date().toISOString().slice(0,10) + '.png';
-        link.href = cvs.toDataURL('image/png', 1.0);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        showToast('✓ تم تصدير المخطط', 'success');
-    } catch(e) { showToast('خطأ في التصدير: ' + e.message, 'danger'); }
+function doExportCrossTab() {
+    closeDropdownsThen(async () => {
+        const card = document.getElementById('crossTabCard');
+        if (!card) { showToast('المخطط غير جاهز بعد', 'danger'); return; }
+        try {
+            const cvs = await html2canvas(card, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+            const link = document.createElement('a');
+            link.download = 'cross-tab-' + new Date().toISOString().slice(0,10) + '.png';
+            link.href = cvs.toDataURL('image/png', 1.0);
+            document.body.appendChild(link); link.click(); document.body.removeChild(link);
+            showToast('✓ تم تصدير المخطط', 'success');
+        } catch(e) { showToast('خطأ في التصدير: ' + e.message, 'danger'); }
+    });
 }
 </script>
 }
