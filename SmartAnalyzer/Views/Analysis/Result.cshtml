@@ -1169,7 +1169,8 @@ function refreshMainCharts() {
     // KPI 2 — Total Contract Value(USD) sum
     const sum = s[VALUE_COL + '_sum'] ?? 0;
     document.getElementById('kpiContractValue').textContent =
-        sum ? '$ ' + Number(sum).toLocaleString('en-US', {maximumFractionDigits: 2}) : '—';
+        sum ? '$ ' + Number(sum).toLocaleString(locale(), {maximumFractionDigits: 2}) : '—';
+    document.getElementById('kpiContractValueSub').textContent = t('a.kpi_sub_value');
 }
 
 function formatBigValue(n) {
