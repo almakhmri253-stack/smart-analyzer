@@ -1197,7 +1197,7 @@ async function loadEntityCards() {
     document.getElementById('entitySectionLabel').textContent = col;
     document.getElementById('entityCardsRow').innerHTML =
         `<div class="entity-card"><div class="entity-avatar" style="background:rgba(255,255,255,0.2)">
-         <i class="fas fa-spinner fa-spin"></i></div><div class="entity-name">جاري...</div></div>`;
+         <i class="fas fa-spinner fa-spin"></i></div><div class="entity-name">${t('j.loading')}</div></div>`;
 
     const resp = await fetch('/Analysis/EntityCards', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1211,7 +1211,7 @@ async function loadEntityCards() {
 
     if (!cards.length) {
         document.getElementById('entityCardsRow').innerHTML =
-            `<div style="color:rgba(255,255,255,.6);font-size:.85rem;padding:.5rem">لا توجد بيانات</div>`;
+            `<div style="color:rgba(255,255,255,.6);font-size:.85rem;padding:.5rem">${t('j.no_data')}</div>`;
         return;
     }
 
@@ -1223,8 +1223,8 @@ async function loadEntityCards() {
     <div class="entity-card ${!activeEntityFilter ? 'active' : ''}"
          style="background:linear-gradient(135deg,#475569,#1e293b)"
          onclick="filterByEntity(null,'${col}')">
-        <div class="entity-name"><i class="fas fa-th-large me-1" style="font-size:.72rem"></i>الكل</div>
-        <div class="entity-count"><strong>${total.toLocaleString(locale())}</strong> سجل</div>
+        <div class="entity-name"><i class="fas fa-th-large me-1" style="font-size:.72rem"></i>${t('j.all')}</div>
+        <div class="entity-count"><strong>${total.toLocaleString(locale())}</strong> ${t('j.records')}</div>
         <div class="entity-bar"><div class="entity-bar-fill" style="width:100%;background:rgba(255,255,255,0.5)"></div></div>
     </div>`;
 
@@ -1237,7 +1237,7 @@ async function loadEntityCards() {
              style="background:linear-gradient(135deg,${c1},${c2})"
              onclick="filterByEntity('${c.name.replace(/'/g,"\\'")}','${col}')">
             <div class="entity-name" title="${c.name}">${c.name}</div>
-            <div class="entity-count"><strong>${c.count.toLocaleString(locale())}</strong> · ${c.percentage}%</div>
+            <div class="entity-count"><strong>${c.count.toLocaleString(locale())}</strong> · ${Number(c.percentage).toLocaleString(locale())}%</div>
             <div class="entity-bar"><div class="entity-bar-fill" style="width:${pct}%;background:rgba(255,255,255,0.6)"></div></div>
         </div>`;
     }).join('');
@@ -1542,6 +1542,7 @@ document.addEventListener('langChanged', () => {
     }
     drawComplianceChart();
     drawCrossTabChart();
+    loadEntityCards();
 });
 
 // ── Close all open dropdowns then capture ──
