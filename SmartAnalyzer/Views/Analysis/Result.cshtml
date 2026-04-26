@@ -223,11 +223,11 @@
     </div>
     <div class="card-body">
         <div class="row g-3 align-items-center">
-            <div class="col-md-5" style="height:320px">
+            <div class="col-md-5" style="height:340px">
                 <canvas id="complianceChart"></canvas>
             </div>
-            <div class="col-md-7">
-                <div id="complianceLegend" class="d-flex flex-column gap-2"></div>
+            <div class="col-md-7" style="max-height:340px;overflow-y:auto;padding-right:4px">
+                <div id="complianceLegend"></div>
             </div>
         </div>
     </div>
@@ -1441,15 +1441,15 @@ async function drawComplianceChart() {
         const pct   = total > 0 ? Math.round(c.count / total * 100) : 0;
         const color = PALETTE[i % PALETTE.length];
         return `
-        <div class="d-flex align-items-center gap-2 mb-2">
-            <div style="width:13px;height:13px;border-radius:3px;background:${color};flex-shrink:0"></div>
-            <div class="flex-grow-1">
-                <div class="d-flex justify-content-between align-items-center">
-                    <span style="font-size:.82rem;font-weight:600">${c.name}</span>
-                    <span style="font-size:.78rem;color:#6b7280">${c.count.toLocaleString()} · ${pct}%</span>
+        <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:11px">
+            <div style="width:12px;height:12px;border-radius:3px;background:${color};flex-shrink:0;margin-top:3px"></div>
+            <div style="flex:1;min-width:0">
+                <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:5px">
+                    <span style="font-size:.82rem;font-weight:600;color:#111827;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.name}</span>
+                    <span style="font-size:.78rem;color:#6b7280;white-space:nowrap;flex-shrink:0">${c.count.toLocaleString('ar-SA')} · ${pct}%</span>
                 </div>
-                <div style="height:4px;background:#f1f5f9;border-radius:2px;margin-top:3px">
-                    <div style="height:4px;background:${color};border-radius:2px;width:${pct}%;transition:width .4s"></div>
+                <div style="height:3px;background:#f1f5f9;border-radius:2px">
+                    <div style="height:3px;background:${color};border-radius:2px;width:${pct}%;transition:width .6s ease"></div>
                 </div>
             </div>
         </div>`;
