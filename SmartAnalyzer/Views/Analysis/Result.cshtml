@@ -1417,15 +1417,11 @@ async function drawComplianceChart() {
                     label: c => ` ${Number(c.raw).toLocaleString(locale())} (${Number(total > 0 ? Math.round(c.raw / total * 100) : 0).toLocaleString(locale())}%)`
                 }},
                 datalabels: isCircular ? {
-                    display: (ctx) => {
-                        const d = ctx.dataset.data;
-                        const t = d.reduce((a,b)=>a+b,0);
-                        return t > 0 && (d[ctx.dataIndex]/t) >= 0.01;
-                    },
+                    display: (ctx) => ctx.dataset.data[ctx.dataIndex] > 0,
                     color: 'white',
                     textAlign: 'center',
                     clamp: true,
-                    font: { family: 'Cairo', size: 10, weight: 'bold' },
+                    font: { family: 'Cairo', size: 9, weight: 'bold' },
                     formatter: (value) => {
                         const pct = total > 0 ? Math.round(value/total*100) : 0;
                         return `${Number(value).toLocaleString(locale())}\n${Number(pct).toLocaleString(locale())}%`;
