@@ -626,7 +626,7 @@ public class BotService(ApplicationDbContext db)
     private static BotCommandResult ColsMsg(List<FileColumn> cols) => new()
     {
         Reply    = $"📋 **أعمدة الملف** ({cols.Count} عمود):\n\n" +
-                   string.Join("\n", cols.Select((c, i) => $"`{i+1}.` **{c.ColumnName}**  _{c.ColumnType}_")),
+                   string.Join("\n", cols.Select((c, i) => $"`{i+1}.` **{c.ColumnName}**  _{c.DataType}_")),
         NewState = "idle", Success = true, ActionType = "info"
     };
 }
