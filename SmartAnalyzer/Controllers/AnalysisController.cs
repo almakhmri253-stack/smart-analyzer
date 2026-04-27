@@ -14,17 +14,20 @@ public class AnalysisController : Controller
     private readonly IExcelService _excelService;
     private readonly IAnalysisService _analysisService;
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly BotService _botService;
 
     public AnalysisController(
         IFilterService filterService,
         IExcelService excelService,
         IAnalysisService analysisService,
-        UserManager<ApplicationUser> userManager)
+        UserManager<ApplicationUser> userManager,
+        BotService botService)
     {
         _filterService = filterService;
         _excelService = excelService;
         _analysisService = analysisService;
         _userManager = userManager;
+        _botService = botService;
     }
 
     [HttpGet]
@@ -89,6 +92,14 @@ public class AnalysisController : Controller
     {
         var userId = _userManager.GetUserId(User)!;
         var result = await _filterService.GetCrossTabAsync(request, userId);
+        return Json(result);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> BotCommand([FromBody] BotCommandRequest req)
+    {
+        var userId = _userManager.GetUserId(User)!;
+        var result = await _botService.ProcessAsync(req, userId);
         return Json(result);
     }
 

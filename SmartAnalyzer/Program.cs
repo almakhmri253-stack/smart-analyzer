@@ -71,6 +71,7 @@ builder.Services.AddAntiforgery(options =>
 builder.Services.AddScoped<IExcelService, ExcelService>();
 builder.Services.AddScoped<IFilterService, FilterService>();
 builder.Services.AddScoped<IAnalysisService, AnalysisService>();
+builder.Services.AddScoped<BotService>();
 
 builder.Services.AddControllersWithViews();
 builder.Services.AddSession();
