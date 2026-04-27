@@ -1652,6 +1652,7 @@ function doExportCrossTab() {
     let botState     = 'idle';
     let botStateData = null;
     let botBusy      = false;
+    let botGuideMode = null; // { type, step, data }
 
     /* ── CSS ───────────────────────────────────────────────── */
     const CSS = `
@@ -1818,10 +1819,10 @@ function doExportCrossTab() {
         <div class="b-quick-row">
             <button class="b-qbtn" onclick="botQuick('اعرض أول 10')">👁 عرض</button>
             <button class="b-qbtn" onclick="botQuick('عدد الصفوف')">🔢 عدد</button>
-            <button class="b-qbtn" onclick="botQuick('إحصاء ')">🧮 احسب</button>
-            <button class="b-qbtn green" onclick="botQuick('أضف')">➕ أضف</button>
-            <button class="b-qbtn" onclick="botQuick('عدل الصف ')">✏️ عدل</button>
-            <button class="b-qbtn red" onclick="botQuick('احذف الصف ')">🗑 احذف</button>
+            <button class="b-qbtn" onclick="botGuide('calc')">🧮 احسب</button>
+            <button class="b-qbtn green" onclick="botGuide('add')">➕ أضف</button>
+            <button class="b-qbtn" onclick="botGuide('edit')">✏️ عدل</button>
+            <button class="b-qbtn red" onclick="botGuide('delete')">🗑 احذف</button>
             <button class="b-qbtn" onclick="botQuick('الأعمدة')">📋 الأعمدة</button>
             <button class="b-qbtn" onclick="botQuick('مساعدة')">❓ مساعدة</button>
         </div>
@@ -1852,14 +1853,99 @@ function doExportCrossTab() {
     };
     window.botClear = function () {
         document.getElementById('botMessages').innerHTML = '';
-        botState = 'idle'; botStateData = null;
+        botState = 'idle'; botStateData = null; botGuideMode = null;
+        resetPlaceholder();
         botGreet();
     };
+
+    window.botGuide = function (type, extra) {
+        document.getElementById('botPanel').classList.add('open');
+        const input = document.getElementById('botInput');
+        input.value = '';
+
+        if (type === 'delete') {
+            botGuideMode = { type: 'delete', step: 'idx' };
+            appendBubble('🗑️ **حذف صف**\nأدخل رقم الصف الذي تريد حذفه:', 'confirm');
+            input.placeholder = 'رقم الصف — مثال: 5';
+
+        } else if (type === 'edit') {
+            botGuideMode = { type: 'edit', step: 'idx' };
+            appendBubble('✏️ **تعديل صف**\nأدخل رقم الصف الذي تريد تعديله:', 'bot');
+            input.placeholder = 'رقم الصف — مثال: 5';
+
+        } else if (type === 'add') {
+            botGuideMode = null;
+            botQuick('أضف');
+            return;
+
+        } else if (type === 'calc') {
+            botGuideMode = null;
+            const msgs = document.getElementById('botMessages');
+            const wrap = document.createElement('div');
+            wrap.className = 'b-bubble bot';
+            wrap.innerHTML = `
+                <div class="b-content">🧮 <strong>احسب</strong> — اختر نوع الحساب:</div>
+                <div style="display:flex;gap:5px;flex-wrap:wrap;padding:6px 14px 10px">
+                    <button class="b-qbtn" onclick="botGuide('calc_op','مجموع')">Σ مجموع</button>
+                    <button class="b-qbtn" onclick="botGuide('calc_op','متوسط')">⌀ متوسط</button>
+                    <button class="b-qbtn" onclick="botGuide('calc_op','أكبر')">↑ أكبر</button>
+                    <button class="b-qbtn" onclick="botGuide('calc_op','أصغر')">↓ أصغر</button>
+                    <button class="b-qbtn" onclick="botGuide('calc_op','إحصاء')">📊 إحصاء شامل</button>
+                </div>
+                <div class="b-meta">${fmtTime()}</div>`;
+            msgs.appendChild(wrap);
+            msgs.scrollTop = msgs.scrollHeight;
+            return;
+
+        } else if (type === 'calc_op') {
+            botGuideMode = { type: 'calc_col', op: extra };
+            appendBubble(`🧮 **${extra}** — أدخل اسم العمود:`, 'bot');
+            input.placeholder = 'اسم العمود — مثال: الراتب';
+        }
+
+        input.focus();
+    };
+
     window.botSend = async function () {
         if (botBusy) return;
         const input = document.getElementById('botInput');
-        const msg   = input.value.trim();
+        let msg = input.value.trim();
         if (!msg) return;
+
+        // ── guided mode interception ──────────────────────────
+        if (botGuideMode) {
+            const gm = botGuideMode;
+
+            if (gm.type === 'delete' && gm.step === 'idx') {
+                if (!/^\d+$/.test(msg)) {
+                    input.value = '';
+                    appendBubble('❌ أدخل رقماً صحيحاً فقط. مثال: **5**', 'error');
+                    input.focus(); return;
+                }
+                botGuideMode = null; resetPlaceholder();
+                msg = `احذف الصف ${msg}`;
+
+            } else if (gm.type === 'edit' && gm.step === 'idx') {
+                if (!/^\d+$/.test(msg)) {
+                    input.value = '';
+                    appendBubble('❌ أدخل رقماً صحيحاً فقط. مثال: **5**', 'error');
+                    input.focus(); return;
+                }
+                botGuideMode = { type: 'edit', step: 'vals', idx: msg };
+                appendBubble(`✏️ الصف **#${msg}** — أدخل التعديلات:\nمثال: \`عمود=قيمة جديدة, عمود2=قيمة\``, 'bot');
+                input.value = ''; input.placeholder = 'عمود=قيمة جديدة...';
+                input.focus(); return;
+
+            } else if (gm.type === 'edit' && gm.step === 'vals') {
+                botGuideMode = null; resetPlaceholder();
+                msg = `عدل الصف ${gm.idx}: ${msg}`;
+
+            } else if (gm.type === 'calc_col') {
+                botGuideMode = null; resetPlaceholder();
+                msg = `${gm.op} ${msg}`;
+            }
+        }
+        // ─────────────────────────────────────────────────────
 
         input.value = '';
         appendUser(msg);
@@ -1991,6 +2077,10 @@ function doExportCrossTab() {
 
     function botGreet() {
         appendBubble('مرحباً! 👋 أنا مساعدك الذكي.\n\nيمكنني:\n• **قراءة وعرض** الصفوف والبحث فيها\n• **حساب** المجموع والمتوسط والإحصاءات\n• **إضافة وتعديل وحذف** الصفوف\n\nاكتب **مساعدة** لعرض جميع الأوامر.', 'bot');
+    }
+
+    function resetPlaceholder() {
+        document.getElementById('botInput').placeholder = 'مثال: مجموع الراتب · اعرض الصف 5 · أضف: ...';
     }
 
     /* ── UTILS ────────────────────────────────────────────── */
