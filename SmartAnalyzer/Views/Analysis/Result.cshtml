@@ -1646,109 +1646,212 @@ function doExportCrossTab() {
 }
 
 // ══════════════════════════════════════════════════════════════
-//  BOT ASSISTANT
+//  BOT ASSISTANT  — Professional Edition
 // ══════════════════════════════════════════════════════════════
 (function () {
-    let botState    = 'idle';
+    let botState     = 'idle';
     let botStateData = null;
-    let botBusy     = false;
+    let botBusy      = false;
 
-    // ── inject HTML ──────────────────────────────────────────
-    const html = `
+    /* ── CSS ───────────────────────────────────────────────── */
+    const CSS = `
 <style>
-#botFab{position:fixed;bottom:28px;right:28px;z-index:1050;width:56px;height:56px;border-radius:50%;
-    background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;color:#fff;font-size:1.3rem;
-    box-shadow:0 4px 18px rgba(99,102,241,.45);cursor:pointer;display:flex;align-items:center;
-    justify-content:center;transition:transform .2s;}
-#botFab:hover{transform:scale(1.1);}
-#botPanel{position:fixed;bottom:96px;right:28px;z-index:1049;width:360px;max-width:calc(100vw - 40px);
-    height:520px;background:#fff;border-radius:18px;box-shadow:0 8px 40px rgba(0,0,0,.18);
-    display:flex;flex-direction:column;overflow:hidden;
-    transform:scale(.9) translateY(20px);opacity:0;pointer-events:none;
-    transition:transform .22s cubic-bezier(.34,1.56,.64,1),opacity .18s;}
-#botPanel.open{transform:scale(1) translateY(0);opacity:1;pointer-events:auto;}
-#botHeader{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;padding:14px 18px;
-    display:flex;align-items:center;gap:10px;flex-shrink:0;}
-#botHeader .bot-avatar{width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.2);
-    display:flex;align-items:center;justify-content:center;font-size:1.1rem;}
-#botHeader .bot-title{font-weight:700;font-size:.95rem;}
-#botHeader .bot-sub{font-size:.72rem;opacity:.8;}
-#botClose{margin-right:auto;background:none;border:none;color:#fff;font-size:1.2rem;cursor:pointer;opacity:.8;}
-#botClose:hover{opacity:1;}
-#botMessages{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;
-    background:#f8f9ff;}
-.bot-msg{max-width:85%;padding:10px 13px;border-radius:14px;font-size:.84rem;line-height:1.55;word-break:break-word;}
-.bot-msg.bot{background:#fff;border:1px solid #e8e8f5;border-radius:14px 14px 14px 2px;align-self:flex-start;
-    box-shadow:0 1px 4px rgba(0,0,0,.06);}
-.bot-msg.user{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;
-    border-radius:14px 14px 2px 14px;align-self:flex-end;}
-.bot-msg.error{background:#fff3f3;border:1px solid #fca5a5;color:#b91c1c;}
-.bot-msg.success{background:#f0fdf4;border:1px solid #86efac;color:#166534;}
-.bot-typing{display:flex;gap:5px;align-items:center;padding:8px 12px;}
-.bot-typing span{width:8px;height:8px;border-radius:50%;background:#9ca3af;
-    animation:botdot .9s infinite both;}
-.bot-typing span:nth-child(2){animation-delay:.15s;}
-.bot-typing span:nth-child(3){animation-delay:.3s;}
-@@keyframes botdot{0%,80%,100%{transform:scale(.6)}40%{transform:scale(1.1)}}
-#botQuick{display:flex;gap:6px;padding:10px 14px;flex-wrap:wrap;border-top:1px solid #f0f0f8;flex-shrink:0;background:#fff;}
-.bot-quick-btn{font-size:.75rem;padding:5px 11px;border-radius:20px;border:1.5px solid #6366f1;
-    color:#6366f1;background:#fff;cursor:pointer;transition:all .15s;}
-.bot-quick-btn:hover{background:#6366f1;color:#fff;}
-#botInputRow{display:flex;gap:8px;padding:10px 14px;border-top:1px solid #f0f0f8;flex-shrink:0;background:#fff;}
-#botInput{flex:1;border:1.5px solid #e0e0ee;border-radius:10px;padding:8px 12px;font-size:.85rem;
-    outline:none;font-family:inherit;resize:none;height:38px;line-height:1.3;}
-#botInput:focus{border-color:#6366f1;}
-#botSend{background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;color:#fff;
-    border-radius:10px;padding:0 14px;cursor:pointer;font-size:1rem;transition:opacity .15s;}
-#botSend:hover{opacity:.85;}
-#botSend:disabled{opacity:.4;cursor:not-allowed;}
-</style>
+/* FAB */
+#botFab{position:fixed;bottom:30px;right:30px;z-index:1060;width:58px;height:58px;
+    border-radius:50%;background:linear-gradient(135deg,#6366f1 0%,#8b5cf6 100%);
+    border:none;color:#fff;font-size:1.35rem;cursor:pointer;
+    box-shadow:0 6px 24px rgba(99,102,241,.55);
+    display:flex;align-items:center;justify-content:center;
+    transition:transform .2s,box-shadow .2s;}
+#botFab:hover{transform:scale(1.08);box-shadow:0 8px 30px rgba(99,102,241,.65);}
+#botFab .fab-badge{position:absolute;top:2px;right:2px;width:14px;height:14px;
+    background:#22c55e;border-radius:50%;border:2px solid #fff;display:none;}
+#botFab.has-notif .fab-badge{display:block;}
 
+/* PANEL */
+#botPanel{position:fixed;bottom:102px;right:30px;z-index:1059;
+    width:440px;max-width:calc(100vw - 40px);height:600px;max-height:calc(100vh - 130px);
+    background:#fff;border-radius:20px;
+    box-shadow:0 20px 60px rgba(0,0,0,.18),0 4px 16px rgba(99,102,241,.15);
+    display:flex;flex-direction:column;overflow:hidden;
+    transform:translateY(18px) scale(.97);opacity:0;pointer-events:none;
+    transition:transform .24s cubic-bezier(.34,1.56,.64,1),opacity .2s;
+    border:1px solid rgba(99,102,241,.12);}
+#botPanel.open{transform:translateY(0) scale(1);opacity:1;pointer-events:auto;}
+
+/* HEADER */
+#botHeader{background:linear-gradient(135deg,#6366f1 0%,#8b5cf6 100%);
+    color:#fff;padding:16px 18px;display:flex;align-items:center;gap:12px;flex-shrink:0;
+    position:relative;}
+#botHeader::after{content:'';position:absolute;bottom:-1px;left:0;right:0;height:1px;
+    background:rgba(255,255,255,.15);}
+.b-avatar{width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.18);
+    display:flex;align-items:center;justify-content:center;font-size:1.15rem;flex-shrink:0;}
+.b-title{font-weight:700;font-size:1rem;letter-spacing:.01em;}
+.b-sub{font-size:.71rem;opacity:.78;margin-top:1px;}
+.b-actions{margin-right:auto;display:flex;gap:4px;}
+.b-act-btn{background:rgba(255,255,255,.15);border:none;color:#fff;width:28px;height:28px;
+    border-radius:8px;cursor:pointer;font-size:.85rem;display:flex;align-items:center;
+    justify-content:center;transition:background .15s;}
+.b-act-btn:hover{background:rgba(255,255,255,.28);}
+
+/* MESSAGES */
+#botMessages{flex:1;overflow-y:auto;padding:16px 14px;
+    display:flex;flex-direction:column;gap:12px;background:#f6f7fb;
+    scrollbar-width:thin;scrollbar-color:#d1d5db transparent;}
+#botMessages::-webkit-scrollbar{width:5px;}
+#botMessages::-webkit-scrollbar-thumb{background:#d1d5db;border-radius:99px;}
+
+/* BUBBLE BASE */
+.b-bubble{max-width:88%;display:flex;flex-direction:column;gap:3px;
+    animation:bFadeIn .18s ease-out;}
+@@keyframes bFadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.b-bubble.bot{align-self:flex-start;}
+.b-bubble.user{align-self:flex-end;}
+.b-content{padding:11px 14px;border-radius:16px;font-size:.84rem;line-height:1.6;
+    word-break:break-word;white-space:pre-wrap;}
+.b-bubble.bot .b-content{background:#fff;border:1px solid #e8eaf6;
+    border-radius:4px 16px 16px 16px;box-shadow:0 1px 4px rgba(0,0,0,.06);color:#1e1b4b;}
+.b-bubble.user .b-content{background:linear-gradient(135deg,#6366f1,#8b5cf6);
+    color:#fff;border-radius:16px 4px 16px 16px;}
+.b-bubble.error .b-content{background:#fef2f2;border:1px solid #fecaca;color:#991b1b;
+    border-radius:4px 16px 16px 16px;}
+.b-bubble.success .b-content{background:#f0fdf4;border:1px solid #bbf7d0;color:#14532d;
+    border-radius:4px 16px 16px 16px;}
+.b-bubble.confirm .b-content{background:#fffbeb;border:1px solid #fde68a;color:#78350f;
+    border-radius:4px 16px 16px 16px;}
+.b-meta{font-size:.68rem;color:#9ca3af;padding:0 4px;}
+.b-bubble.user .b-meta{text-align:right;}
+
+/* TABLE BUBBLE */
+.b-table-wrap{max-width:100%;overflow-x:auto;border-radius:12px;
+    border:1px solid #e8eaf6;background:#fff;
+    box-shadow:0 1px 6px rgba(0,0,0,.06);}
+.b-table-title{padding:10px 14px 6px;font-weight:600;font-size:.82rem;
+    color:#4f46e5;border-bottom:1px solid #f0f0ff;display:flex;
+    align-items:center;justify-content:space-between;gap:8px;}
+.b-table-title span{color:#6b7280;font-weight:400;}
+.b-tbl{width:100%;border-collapse:collapse;font-size:.78rem;}
+.b-tbl th{background:#f5f3ff;color:#4f46e5;font-weight:600;padding:7px 10px;
+    border-bottom:2px solid #e8eaf6;white-space:nowrap;position:sticky;top:0;}
+.b-tbl td{padding:6px 10px;border-bottom:1px solid #f3f4f6;color:#374151;max-width:140px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.b-tbl tr:last-child td{border-bottom:none;}
+.b-tbl tr:hover td{background:#faf5ff;}
+.b-tbl .row-idx{color:#a5b4fc;font-size:.72rem;font-weight:600;padding-left:12px;}
+.b-tbl-scroll{max-height:220px;overflow-y:auto;}
+
+/* STAT BUBBLE */
+.b-stat{background:#fff;border:1px solid #e8eaf6;border-radius:14px;
+    padding:14px 18px;display:flex;align-items:center;gap:14px;
+    box-shadow:0 1px 6px rgba(0,0,0,.06);}
+.b-stat-icon{width:44px;height:44px;border-radius:12px;display:flex;
+    align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;}
+.b-stat-icon.sum{background:#ede9fe;color:#7c3aed;}
+.b-stat-icon.avg{background:#dbeafe;color:#1d4ed8;}
+.b-stat-icon.max{background:#dcfce7;color:#15803d;}
+.b-stat-icon.min{background:#fee2e2;color:#b91c1c;}
+.b-stat-icon.count{background:#fef9c3;color:#a16207;}
+.b-stat-label{font-size:.78rem;color:#6b7280;margin-bottom:2px;}
+.b-stat-value{font-size:1.3rem;font-weight:700;color:#1e1b4b;}
+.b-stat-sub{font-size:.71rem;color:#9ca3af;margin-top:1px;}
+
+/* TYPING */
+.b-typing{display:flex;gap:5px;align-items:center;padding:10px 14px;
+    background:#fff;border:1px solid #e8eaf6;border-radius:4px 16px 16px 16px;
+    width:fit-content;box-shadow:0 1px 4px rgba(0,0,0,.06);}
+.b-typing span{width:7px;height:7px;border-radius:50%;background:#a5b4fc;
+    animation:btdot 1s infinite both;}
+.b-typing span:nth-child(2){animation-delay:.18s;}
+.b-typing span:nth-child(3){animation-delay:.36s;}
+@@keyframes btdot{0%,80%,100%{transform:scale(.5);opacity:.5}40%{transform:scale(1.1);opacity:1}}
+
+/* QUICK ACTIONS */
+#botQuick{padding:10px 14px;border-top:1px solid #f0f0f8;flex-shrink:0;background:#fff;}
+.b-quick-label{font-size:.67rem;color:#9ca3af;text-transform:uppercase;
+    letter-spacing:.06em;margin-bottom:6px;}
+.b-quick-row{display:flex;gap:5px;flex-wrap:wrap;}
+.b-qbtn{font-size:.73rem;padding:5px 10px;border-radius:20px;
+    border:1.5px solid #e8eaf6;color:#4f46e5;background:#faf5ff;
+    cursor:pointer;transition:all .15s;white-space:nowrap;}
+.b-qbtn:hover{background:#6366f1;color:#fff;border-color:#6366f1;}
+.b-qbtn.red:hover{background:#ef4444;color:#fff;border-color:#ef4444;}
+.b-qbtn.green:hover{background:#22c55e;color:#fff;border-color:#22c55e;}
+
+/* INPUT */
+#botInputRow{display:flex;gap:8px;padding:10px 14px 14px;
+    border-top:1px solid #f0f0f8;flex-shrink:0;background:#fff;}
+#botInput{flex:1;border:1.5px solid #e8eaf6;border-radius:12px;
+    padding:9px 13px;font-size:.85rem;outline:none;font-family:inherit;
+    line-height:1.4;background:#faf5ff;transition:border-color .2s,box-shadow .2s;}
+#botInput:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.12);background:#fff;}
+#botSend{background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;color:#fff;
+    border-radius:12px;padding:0 16px;cursor:pointer;font-size:.95rem;
+    transition:opacity .15s,transform .1s;flex-shrink:0;}
+#botSend:hover{opacity:.88;transform:scale(1.04);}
+#botSend:disabled{opacity:.35;cursor:not-allowed;transform:none;}
+#botHint{font-size:.68rem;color:#9ca3af;padding:0 4px 6px;text-align:center;flex-shrink:0;background:#fff;}
+</style>`;
+
+    /* ── HTML ──────────────────────────────────────────────── */
+    const HTML = `
 <button id="botFab" title="المساعد الذكي" onclick="botToggle()">
     <i class="fas fa-robot"></i>
+    <span class="fab-badge"></span>
 </button>
 
 <div id="botPanel">
     <div id="botHeader">
-        <div class="bot-avatar"><i class="fas fa-robot"></i></div>
+        <div class="b-avatar"><i class="fas fa-robot"></i></div>
         <div>
-            <div class="bot-title">المساعد الذكي</div>
-            <div class="bot-sub">أضف · عدل · احذف البيانات</div>
+            <div class="b-title">المساعد الذكي</div>
+            <div class="b-sub">اقرأ · احسب · أضف · عدل · احذف</div>
         </div>
-        <button id="botClose" onclick="botToggle()"><i class="fas fa-times"></i></button>
+        <div class="b-actions">
+            <button class="b-act-btn" title="مسح المحادثة" onclick="botClear()"><i class="fas fa-trash-alt"></i></button>
+            <button class="b-act-btn" title="إغلاق" onclick="botToggle()"><i class="fas fa-times"></i></button>
+        </div>
     </div>
     <div id="botMessages"></div>
     <div id="botQuick">
-        <button class="bot-quick-btn" onclick="botQuick('أضف')">➕ أضف</button>
-        <button class="bot-quick-btn" onclick="botQuick('الأعمدة')">📋 الأعمدة</button>
-        <button class="bot-quick-btn" onclick="botQuick('مساعدة')">❓ مساعدة</button>
+        <div class="b-quick-label">أوامر سريعة</div>
+        <div class="b-quick-row">
+            <button class="b-qbtn" onclick="botQuick('اعرض أول 10')">👁 عرض</button>
+            <button class="b-qbtn" onclick="botQuick('عدد الصفوف')">🔢 عدد</button>
+            <button class="b-qbtn" onclick="botQuick('الأعمدة')">📋 الأعمدة</button>
+            <button class="b-qbtn green" onclick="botQuick('أضف')">➕ أضف</button>
+            <button class="b-qbtn" onclick="botQuick('مساعدة')">❓ مساعدة</button>
+        </div>
     </div>
     <div id="botInputRow">
-        <input id="botInput" type="text" placeholder="اكتب أمراً..." dir="auto"
-               onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();botSend();}">
-        <button id="botSend" onclick="botSend()"><i class="fas fa-paper-plane"></i></button>
+        <input id="botInput" type="text" placeholder="مثال: مجموع الراتب · اعرض الصف 5 · أضف: ..." dir="auto"
+               onkeydown="if(event.key==='Enter'){event.preventDefault();botSend();}">
+        <button id="botSend" onclick="botSend()" title="إرسال"><i class="fas fa-paper-plane"></i></button>
     </div>
+    <div id="botHint">Enter للإرسال</div>
 </div>`;
 
-    document.body.insertAdjacentHTML('beforeend', html);
+    document.body.insertAdjacentHTML('beforeend', CSS + HTML);
+    botGreet();
 
-    // ── first greeting ────────────────────────────────────────
-    botAppendMsg('مرحباً! أنا مساعدك لتعديل البيانات.\nيمكنني إضافة وتعديل وحذف الصفوف.\nاكتب **مساعدة** لعرض الأوامر.', 'bot');
-
-    // ── toggle ────────────────────────────────────────────────
+    /* ── PUBLIC ───────────────────────────────────────────── */
     window.botToggle = function () {
-        document.getElementById('botPanel').classList.toggle('open');
-        if (document.getElementById('botPanel').classList.contains('open'))
-            document.getElementById('botInput').focus();
+        const panel = document.getElementById('botPanel');
+        const fab   = document.getElementById('botFab');
+        panel.classList.toggle('open');
+        fab.classList.remove('has-notif');
+        if (panel.classList.contains('open')) document.getElementById('botInput').focus();
     };
-
-    // ── quick buttons ─────────────────────────────────────────
     window.botQuick = function (text) {
         document.getElementById('botInput').value = text;
+        document.getElementById('botPanel').classList.add('open');
         botSend();
     };
-
-    // ── send ──────────────────────────────────────────────────
+    window.botClear = function () {
+        document.getElementById('botMessages').innerHTML = '';
+        botState = 'idle'; botStateData = null;
+        botGreet();
+    };
     window.botSend = async function () {
         if (botBusy) return;
         const input = document.getElementById('botInput');
@@ -1756,74 +1859,149 @@ function doExportCrossTab() {
         if (!msg) return;
 
         input.value = '';
-        botAppendMsg(msg, 'user');
+        appendUser(msg);
         botBusy = true;
         document.getElementById('botSend').disabled = true;
 
-        const typingEl = botShowTyping();
-
+        const typing = showTyping();
         try {
-            const resp = await fetch('/Analysis/BotCommand', {
-                method: 'POST',
+            const res = await fetch('/Analysis/BotCommand', {
+                method:  'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    fileId:    FILE_ID,
-                    message:   msg,
-                    state:     botState,
-                    stateData: botStateData
-                })
+                body:    JSON.stringify({ fileId: FILE_ID, message: msg, state: botState, stateData: botStateData })
             });
-            const result = await resp.json();
-            typingEl.remove();
-
-            botState     = result.newState  || 'idle';
-            botStateData = result.stateData || null;
-
-            const cls = result.actionType === 'error'   ? 'error'
-                      : result.actionType === 'added' || result.actionType === 'edited' || result.actionType === 'deleted'
-                        ? 'success' : 'bot';
-            botAppendMsg(result.reply, cls);
-
-            if (result.refreshData) {
-                applyFilters();
-                showToast('✓ تم تحديث البيانات', 'success');
-            }
+            const r = await res.json();
+            typing.remove();
+            botState     = r.newState  || 'idle';
+            botStateData = r.stateData || null;
+            renderResult(r);
+            if (r.refreshData) { applyFilters(); showToast('✓ تم تحديث البيانات', 'success'); }
         } catch (e) {
-            typingEl.remove();
-            botAppendMsg('❌ خطأ في الاتصال. حاول مرة أخرى.', 'error');
+            typing.remove();
+            appendBubble('❌ خطأ في الاتصال بالخادم. حاول مرة أخرى.', 'error');
         }
-
         botBusy = false;
         document.getElementById('botSend').disabled = false;
         document.getElementById('botInput').focus();
     };
 
-    // ── helpers ───────────────────────────────────────────────
-    function botAppendMsg(text, cls) {
+    /* ── RENDER ───────────────────────────────────────────── */
+    function renderResult(r) {
+        if (r.actionType === 'table')        { renderTable(r); return; }
+        if (r.actionType === 'stat')         { renderStat(r); return; }
+        const cls = r.actionType === 'error'   ? 'error'
+                  : r.actionType === 'confirm' ? 'confirm'
+                  : ['added','edited','deleted'].includes(r.actionType) ? 'success'
+                  : 'bot';
+        appendBubble(r.reply, cls);
+    }
+
+    function renderTable(r) {
+        const td   = r.tableData;
+        if (!td || !td.rows || !td.rows.length) { appendBubble('لا توجد نتائج.', 'bot'); return; }
         const msgs = document.getElementById('botMessages');
-        const div  = document.createElement('div');
-        div.className = `bot-msg ${cls}`;
-        div.innerHTML  = botFormat(text);
-        msgs.appendChild(div);
+
+        /* pick first 6 columns to display + index */
+        const displayCols = td.columns.slice(0, 6);
+
+        let th = `<th class="row-idx">#</th>` + displayCols.map(c =>
+            `<th title="${esc(c)}">${esc(c.length > 14 ? c.slice(0,12)+'…' : c)}</th>`).join('');
+
+        let tbody = td.rows.map(row =>
+            `<tr><td class="row-idx">${row.rowIndex}</td>` +
+            displayCols.map(c => {
+                const v = row.data[c] ?? '—';
+                return `<td title="${esc(v)}">${esc(v.length > 18 ? v.slice(0,16)+'…' : v)}</td>`;
+            }).join('') + '</tr>'
+        ).join('');
+
+        const moreNote = td.columns.length > 6
+            ? `<span style="font-size:.7rem;color:#9ca3af">+ ${td.columns.length-6} عمود مخفي</span>` : '';
+
+        const wrap = document.createElement('div');
+        wrap.className = 'b-bubble bot';
+        wrap.style.maxWidth = '100%';
+        wrap.innerHTML = `
+            <div class="b-table-wrap">
+                <div class="b-table-title">
+                    <span style="color:#4f46e5;font-weight:600">${esc(td.title)}</span>
+                    <span>${td.rows.length} صف ${moreNote}</span>
+                </div>
+                <div class="b-tbl-scroll">
+                    <table class="b-tbl"><thead><tr>${th}</tr></thead><tbody>${tbody}</tbody></table>
+                </div>
+            </div>
+            <div class="b-meta">${fmtTime()}</div>`;
+        msgs.appendChild(wrap);
         msgs.scrollTop = msgs.scrollHeight;
     }
 
-    function botShowTyping() {
+    function renderStat(r) {
+        const msgs = document.getElementById('botMessages');
+        const parts = r.reply.split('||');
+        const label = parts[0] || '', value = parts[1] || '', sub = parts[2] || '', icon = parts[3] || parts[2] || 'count';
+        const iconMap = { sum:'Σ', avg:'⌀', max:'↑', min:'↓', count:'#' };
+        const wrap = document.createElement('div');
+        wrap.className = 'b-bubble bot';
+        wrap.style.maxWidth = '100%';
+        wrap.innerHTML = `
+            <div class="b-stat">
+                <div class="b-stat-icon ${icon}">${iconMap[icon] || '#'}</div>
+                <div>
+                    <div class="b-stat-label">${esc(label)}</div>
+                    <div class="b-stat-value">${esc(value)}</div>
+                    ${sub ? `<div class="b-stat-sub">${esc(sub)}</div>` : ''}
+                </div>
+            </div>
+            <div class="b-meta">${fmtTime()}</div>`;
+        msgs.appendChild(wrap);
+        msgs.scrollTop = msgs.scrollHeight;
+    }
+
+    function appendBubble(text, cls) {
+        const msgs = document.getElementById('botMessages');
+        const wrap = document.createElement('div');
+        wrap.className = `b-bubble ${cls}`;
+        wrap.innerHTML = `<div class="b-content">${fmt(text)}</div><div class="b-meta">${fmtTime()}</div>`;
+        msgs.appendChild(wrap);
+        msgs.scrollTop = msgs.scrollHeight;
+    }
+
+    function appendUser(text) {
+        const msgs = document.getElementById('botMessages');
+        const wrap = document.createElement('div');
+        wrap.className = 'b-bubble user';
+        wrap.innerHTML = `<div class="b-content">${esc(text)}</div><div class="b-meta">${fmtTime()}</div>`;
+        msgs.appendChild(wrap);
+        msgs.scrollTop = msgs.scrollHeight;
+    }
+
+    function showTyping() {
         const msgs = document.getElementById('botMessages');
         const div  = document.createElement('div');
-        div.className = 'bot-msg bot bot-typing';
-        div.innerHTML  = '<span></span><span></span><span></span>';
+        div.className = 'b-bubble bot';
+        div.innerHTML  = '<div class="b-typing"><span></span><span></span><span></span></div>';
         msgs.appendChild(div);
         msgs.scrollTop = msgs.scrollHeight;
         return div;
     }
 
-    function botFormat(text) {
-        return text
-            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    function botGreet() {
+        appendBubble('مرحباً! 👋 أنا مساعدك الذكي.\n\nيمكنني:\n• **قراءة وعرض** الصفوف والبحث فيها\n• **حساب** المجموع والمتوسط والإحصاءات\n• **إضافة وتعديل وحذف** الصفوف\n\nاكتب **مساعدة** لعرض جميع الأوامر.', 'bot');
+    }
+
+    /* ── UTILS ────────────────────────────────────────────── */
+    function fmt(text) {
+        return esc(text)
             .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-            .replace(/`([^`]+)`/g, '<code style="background:#f0f0f8;padding:1px 5px;border-radius:4px;font-size:.82em">$1</code>')
-            .replace(/\n/g, '<br>');
+            .replace(/`([^`\n]+)`/g, '<code style="background:#f0f0f8;padding:1px 6px;border-radius:5px;font-size:.8em;font-family:monospace">$1</code>')
+            .replace(/_(.+?)_/g, '<em>$1</em>');
+    }
+    function esc(s) {
+        return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+    function fmtTime() {
+        return new Date().toLocaleTimeString(typeof currentLang!=='undefined'&&currentLang==='ar'?'ar-SA':'en-US',{hour:'2-digit',minute:'2-digit'});
     }
 })();
 </script>
